@@ -1,0 +1,6 @@
+{
+  "platform": "docker",
+  "app": "torobgard",
+  "port": 80,
+  "disks": []
+}

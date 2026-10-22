@@ -1,0 +1,46 @@
+# Dependencies
+node_modules/
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Demo/runtime artifacts
+demo.log
+pw-*.log
+server.log
+server.err
+probe.png
+shots/
+
+# Test outputs
+test-results/
+playwright-report/
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.env
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Generated database
+backend/torob.db*
+backend/*.db
+
+# Playwright error logs
+pw-*.err
+
+# Large dataset (check with team before committing)
+starcoach-dataset-v16-cap300-csv/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo

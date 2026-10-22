@@ -1,0 +1,13 @@
+.git
+.gitignore
+frontend/node_modules/
+frontend/src/
+frontend/public/
+frontend/package.json
+frontend/package-lock.json
+frontend/vite.config.js
+starcoach-dataset-v16-cap300-csv/
+__pycache__/
+*.pyc
+.env
+.venv

@@ -1,0 +1,162 @@
+@import "tailwindcss";
+
+@theme {
+  --color-torob-red: #E8453C;
+  --color-torob-red-dark: #C73830;
+  --color-torob-red-light: #FDF2F1;
+  --color-torob-gray: #F5F5F5;
+  --color-torob-dark: #1A1A2E;
+  --color-torob-green: #22C55E;
+  --color-torob-yellow: #F59E0B;
+  --color-torob-blue: #3B82F6;
+  --font-family-sans: 'Vazirmatn', system-ui, -apple-system, sans-serif;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #ddd; border-radius: 4px; }
+
+/* Smooth scroll */
+html { scroll-behavior: smooth; }
+
+/* RTL utilities */
+.direction-ltr { direction: ltr; }
+
+/* Price display (always LTR numbers) */
+.price-display { direction: ltr; unicode-bidi: isolate; }
+
+/* Map container */
+.leaflet-container { width: 100%; height: 100%; border-radius: 12px; z-index: 1; }
+
+/* Animations */
+@keyframes slideUp {
+  from { transform: translateY(20px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes pulse-ring {
+  0% { transform: scale(0.8); opacity: 1; }
+  100% { transform: scale(1.4); opacity: 0; }
+}
+
+.animate-slide-up { animation: slideUp 0.3s ease-out; }
+.animate-fade-in { animation: fadeIn 0.3s ease-out; }
+
+/* Message bubble animations */
+.message-enter {
+  animation: slideUp 0.3s ease-out;
+}
+
+/* Chip/badge styles */
+.chip {
+  @apply inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium transition-all;
+}
+
+.chip-active {
+  @apply bg-torob-red text-white;
+}
+
+.chip-inactive {
+  @apply bg-gray-100 text-gray-600 hover:bg-gray-200;
+}
+
+/* Card styles */
+.shop-card {
+  @apply bg-white rounded-xl border border-gray-100 p-4 transition-all hover:shadow-md hover:border-torob-red/30 cursor-pointer;
+}
+
+.product-card {
+  @apply bg-white rounded-xl border border-gray-100 overflow-hidden transition-all hover:shadow-lg hover:border-torob-red/30 cursor-pointer;
+}
+
+/* Status indicators */
+.status-open { @apply text-torob-green; }
+.status-closed { @apply text-red-500; }
+.status-unknown { @apply text-gray-400; }
+
+/* Price freshness */
+.price-fresh { @apply text-torob-green; }
+.price-stale { @apply text-torob-yellow; }
+.price-old { @apply text-red-500; }
+
+/* Skeleton loading */
+.skeleton {
+  @apply bg-gray-200 rounded animate-pulse;
+}
+
+/* ── Markdown rendering (chat bubbles) ────────────────────────
+   Implemented locally because @tailwindcss/typography is not installed
+   in this project (Tailwind v4 + no plugin dependency).
+   ---------------------------------------------------------------- */
+.markdown-body {
+  @apply text-xs leading-relaxed;
+}
+.markdown-body > *:first-child { margin-top: 0; }
+.markdown-body > *:last-child { margin-bottom: 0; }
+
+.markdown-body p {
+  @apply my-1.5;
+}
+.markdown-body strong {
+  @apply font-bold;
+}
+.markdown-body em {
+  @apply italic;
+}
+.markdown-body a {
+  @apply text-[#E8453C] underline underline-offset-2;
+}
+.markdown-body ul {
+  @apply my-1.5 pr-4 list-disc;
+}
+.markdown-body ol {
+  @apply my-1.5 pr-4 list-decimal;
+}
+.markdown-body li {
+  @apply my-0.5;
+}
+.markdown-body li::marker {
+  @apply text-gray-400;
+}
+.markdown-body h1,
+.markdown-body h2,
+.markdown-body h3,
+.markdown-body h4 {
+  @apply font-bold text-gray-900 my-2;
+}
+.markdown-body h1 { @apply text-sm; }
+.markdown-body h2 { @apply text-xs; }
+.markdown-body h3,
+.markdown-body h4 { @apply text-xs; }
+.markdown-body blockquote {
+  @apply my-1.5 pr-3 border-r-2 border-gray-300 text-gray-600;
+}
+.markdown-body code {
+  @apply bg-gray-100 text-gray-800 px-1 py-0.5 rounded text-[11px] font-mono;
+}
+.markdown-body pre {
+  @apply bg-gray-900 text-gray-100 p-2.5 rounded-lg my-2 overflow-x-auto text-[11px];
+}
+.markdown-body pre code {
+  @apply bg-transparent text-inherit p-0;
+}
+.markdown-body hr {
+  @apply my-2 border-gray-200;
+}
+.markdown-body table {
+  @apply w-full my-2 text-[11px];
+}
+.markdown-body th,
+.markdown-body td {
+  @apply border border-gray-200 px-1.5 py-1 text-right;
+}
+.markdown-body th {
+  @apply bg-gray-50 font-bold;
+}
+

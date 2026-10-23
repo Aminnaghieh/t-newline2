@@ -5,6 +5,8 @@ search.py – Product & shop search engine using SQLite FTS5.
 from backend.database import query, query_one
 import json
 import re
+import threading
+import time
 
 
 def _normalize_query(q: str) -> str:
@@ -42,8 +44,23 @@ def search_products(
     max_price: int = 0,
     limit: int = 20,
     offset: int = 0,
+    lat: float = None,
+    lon: float = None,
+    radius_km: float = 5.0,
+    sort: str = "distance",
 ) -> list[dict]:
-    """Search products with optional filters. Returns products with price range."""
+    """Search products with optional filters. Returns products with price range.
+
+    When lat/lon are provided the result is location-aware (see
+    `search_products_located`); without them behavior is identical to the
+    original relevance-ranked search.
+    """
+    if lat is not None and lon is not None:
+        return search_products_located(
+            q=q, category=category, brand=brand, min_price=min_price,
+            max_price=max_price, limit=limit, offset=offset,
+            lat=lat, lon=lon, radius_km=radius_km, sort=sort,
+        )["products"]
 
     conditions = []
     params = []
@@ -244,6 +261,303 @@ def get_brands(category: str = "", limit: int = 50) -> list[dict]:
            GROUP BY brand_name ORDER BY cnt DESC LIMIT ?""",
         (limit,),
     )
+
+
+# ─── Location-aware product search ────────────────────────────
+
+RADIUS_CAP_KM = 25.0        # beyond this the dataset has no reliable coverage
+FALLBACK_TARGET = 8         # fill the page up to this many products (UI page size)
+FALLBACK_MAX_PER_SHOP = 3   # fallback fill: at most 3 products per nearest shop
+_LOCATED_ROW_CAP = 400      # hard cap on candidate rows fetched before merging
+
+# Small in-memory TTL cache for located searches. Keyed primarily by
+# (round(lat,3), round(lon,3), radius_km, q, sort); the remaining arguments
+# are part of the key too so a cached entry can never be served for a
+# request that differs in category/brand/price/window.
+_LOCATED_CACHE: dict = {}
+_LOCATED_CACHE_TTL_S = 60.0
+_LOCATED_CACHE_MAX = 256
+_located_cache_lock = threading.Lock()
+
+
+def _copy_located_meta(meta: dict) -> dict:
+    """Shallow defensive copy of a cached located result (flat rows)."""
+    return {**meta, "products": [dict(p) for p in meta["products"]]}
+
+
+def _nearest_offer_for_product(product_id: str, lat: float, lon: float) -> dict | None:
+    """Nearest shop offer (id + registered price) for one product, inside
+    the 25 km cap. Uses the offers(product_id) index – one tiny query."""
+    from backend.services.geo import bounding_box
+    min_lat, max_lat, min_lon, max_lon = bounding_box(lat, lon, RADIUS_CAP_KM)
+    return query_one(
+        """SELECT o.shop_id AS shop_id, o.price_toman AS price_toman
+           FROM offers o
+           JOIN shops s ON s.shop_id = o.shop_id
+           WHERE o.product_id = ? AND o.price_toman > 0
+             AND s.lat IS NOT NULL AND s.lon IS NOT NULL
+             AND s.lat BETWEEN ? AND ? AND s.lon BETWEEN ? AND ?
+           ORDER BY HAVERSINE_M(?, ?, s.lat, s.lon) ASC, o.price_toman ASC
+           LIMIT 1""",
+        (product_id, min_lat, max_lat, min_lon, max_lon, lat, lon),
+    )
+
+
+def _row_to_located_product(r: dict) -> dict:
+    """Shape a located-search row into the product card contract, adding
+    the nearby fields on top of the classic ones."""
+    images = []
+    try:
+        images = json.loads(r["image_urls"]) if r["image_urls"] else []
+    except (json.JSONDecodeError, TypeError):
+        pass
+
+    specs_summary = ""
+    try:
+        specs_list = json.loads(r["specs"]) if r["specs"] else []
+        if isinstance(specs_list, list):
+            parts = []
+            for s in specs_list[:3]:
+                if isinstance(s, dict) and "key" in s and "value" in s:
+                    parts.append(f"{s['key']}: {s['value']}")
+            specs_summary = " | ".join(parts)
+    except (json.JSONDecodeError, TypeError):
+        pass
+
+    nearest = r["nearest_distance_m"]
+    nearby_count = r["nearby_shops_count"] or 0
+    in_radius = nearby_count > 0
+    if in_radius:
+        # Cheapest registered offer among the in-radius shops.
+        min_price_nearby = r["min_price_nearby"] or 0
+        display_price = min_price_nearby
+    else:
+        # Fallback item: no shop inside the radius. min_price_nearby is
+        # intentionally null; nearest_shop_price is filled by the fallback
+        # fill (see _nearest_offer_for_product).
+        min_price_nearby = None
+        display_price = 0
+    return {
+        "product_id": r["product_id"],
+        "persian_title": r["persian_title"] or "",
+        "brand_name": r["brand_name"] or "",
+        "category_name": r["category_name"] or "",
+        "image_url": images[0] if images else "",
+        "min_price": display_price,
+        "max_price": 0,
+        "offer_count": nearby_count,
+        "specs_summary": specs_summary,
+        "nearby_shops_count": nearby_count,
+        "min_price_nearby": min_price_nearby,
+        "nearest_shop_price": None,
+        "nearest_distance_m": round(nearest) if nearest is not None else None,
+        "in_radius": in_radius,
+    }
+
+
+def search_products_located(
+    q: str = "",
+    category: str = "",
+    brand: str = "",
+    min_price: int = 0,
+    max_price: int = 0,
+    limit: int = 20,
+    offset: int = 0,
+    lat: float = None,
+    lon: float = None,
+    radius_km: float = 5.0,
+    sort: str = "distance",
+) -> dict:
+    """Location-aware product search.
+
+    Aggregates offers of shops inside the (capped) bounding box using a
+    per-shop haversine prefilter, then groups per product:
+      - nearby_shops_count / min_price_nearby: only shops within radius_km
+      - nearest_distance_m: nearest shop inside the 25 km cap
+    Products with no shop inside radius_km can still be returned as a
+    fallback (in_radius=false, ordered by nearest distance) so the page is
+    not empty when the dataset simply has no coverage there.
+
+    Returns {"products", "radius_used", "fallback", "in_radius_count"}.
+    """
+    radius_km = max(0.1, min(float(radius_km or 5.0), RADIUS_CAP_KM))
+    sort_key = "price" if sort == "price" else "distance"
+
+    # TTL cache lookup – key includes the required components plus every
+    # other argument so entries can never leak across differing requests.
+    cache_key = (
+        round(lat, 3), round(lon, 3), radius_km, q, sort,
+        category, brand, min_price, max_price, limit, offset,
+    )
+    now = time.time()
+    with _located_cache_lock:
+        hit = _LOCATED_CACHE.get(cache_key)
+        if hit and now - hit[0] <= _LOCATED_CACHE_TTL_S:
+            return _copy_located_meta(hit[1])
+
+    r_m = radius_km * 1000.0
+
+    from backend.services.geo import bounding_box
+    min_lat, max_lat, min_lon, max_lon = bounding_box(lat, lon, RADIUS_CAP_KM)
+
+    conditions = []
+    params: list = []
+    # NOTE: the FTS filter is applied inside the cand CTE (see fts_prefilter
+    # below) so the aggregation only walks matching products' offers.
+    if category:
+        conditions.append("p.category_name LIKE ?")
+        params.append(f"%{category}%")
+    if brand:
+        conditions.append("p.brand_name LIKE ?")
+        params.append(f"%{brand}%")
+    if min_price > 0:
+        conditions.append("a.min_price_nearby >= ?")
+        params.append(min_price)
+    if max_price > 0:
+        conditions.append("a.min_price_nearby <= ?")
+        params.append(max_price)
+    where = "WHERE " + " AND ".join(conditions) if conditions else ""
+
+    if not q:
+        # Empty query: top products by number of nearby shops.
+        order = (
+            "(a.nearby_shops_count > 0) DESC, a.nearby_shops_count DESC, "
+            "a.nearest_distance_m ASC, p.product_id"
+        )
+    elif sort_key == "price":
+        order = (
+            "(a.nearby_shops_count > 0) DESC, "
+            "COALESCE(a.min_price_nearby, 9223372036854775807) ASC, "
+            "a.nearest_distance_m ASC, p.product_id"
+        )
+    else:
+        order = (
+            "(a.nearby_shops_count > 0) DESC, a.nearest_distance_m ASC, "
+            "a.nearby_shops_count DESC, p.product_id"
+        )
+
+    # Performance: when a text query is given, push the FTS filter INTO the
+    # candidate CTE so the per-product aggregation only walks the offers of
+    # matching products instead of the whole 330k+ offers table.
+    fts_prefilter = ""
+    fts_params: list = []
+    if q:
+        fts_prefilter = (
+            "AND o.product_id IN "
+            "(SELECT product_id FROM products_fts WHERE products_fts MATCH ?)"
+        )
+        fts_params.append(_fts_query(q))
+
+    # Param order follows the textual order of placeholders:
+    # shopd(haversine+box) -> cand(fts prefilter) -> agg(radius cases)
+    # -> WHERE -> LIMIT
+    sql = f"""
+        WITH shopd AS (
+            SELECT s.shop_id AS shop_id,
+                   HAVERSINE_M(?, ?, s.lat, s.lon) AS dist_m
+            FROM shops s
+            WHERE s.lat IS NOT NULL AND s.lon IS NOT NULL
+              AND s.lat BETWEEN ? AND ? AND s.lon BETWEEN ? AND ?
+        ),
+        cand AS (
+            SELECT o.product_id AS product_id, o.shop_id AS shop_id,
+                   o.price_toman AS price_toman, d.dist_m AS dist_m
+            FROM offers o
+            JOIN shopd d ON d.shop_id = o.shop_id
+            WHERE o.price_toman > 0
+            {fts_prefilter}
+        ),
+        agg AS (
+            SELECT c.product_id AS product_id,
+                   COUNT(DISTINCT CASE WHEN c.dist_m <= ? THEN c.shop_id END)
+                       AS nearby_shops_count,
+                   MIN(CASE WHEN c.dist_m <= ? THEN c.price_toman END)
+                       AS min_price_nearby,
+                   MIN(c.dist_m) AS nearest_distance_m
+            FROM cand c
+            GROUP BY c.product_id
+        )
+        SELECT p.product_id, p.persian_title, p.brand_name, p.category_name,
+               p.image_urls, p.specs,
+               a.nearby_shops_count, a.min_price_nearby,
+               a.nearest_distance_m
+        FROM agg a
+        JOIN products p ON p.product_id = a.product_id
+        {where}
+        ORDER BY {order}
+        LIMIT ?
+    """
+    all_params = (
+        [lat, lon, min_lat, max_lat, min_lon, max_lon]
+        + fts_params
+        + [r_m, r_m]
+        + params
+        + [_LOCATED_ROW_CAP]
+    )
+    rows = query(sql, tuple(all_params))
+
+    in_radius_rows = []
+    fallback_pool = []
+    for r in rows:
+        rec = _row_to_located_product(r)
+        if rec["in_radius"]:
+            in_radius_rows.append(rec)
+        else:
+            fallback_pool.append(rec)
+
+    target = max(limit, FALLBACK_TARGET)
+    merged = list(in_radius_rows)
+    fallback_used = False
+    if len(merged) < target and fallback_pool:
+        # Fill the page with out-of-radius products, walking the pool in
+        # nearest-first order but capping at FALLBACK_MAX_PER_SHOP products
+        # whose nearest shop is the same, so one shop cannot dominate the
+        # list. Enriched lazily with the nearest shop's registered price.
+        need = target - len(merged)
+        filled = 0
+        per_shop: dict[str, int] = {}
+        for rec in fallback_pool:
+            if filled >= need:
+                break
+            nearest = _nearest_offer_for_product(rec["product_id"], lat, lon)
+            if not nearest:
+                continue
+            shop_id = nearest["shop_id"]
+            if per_shop.get(shop_id, 0) >= FALLBACK_MAX_PER_SHOP:
+                continue
+            per_shop[shop_id] = per_shop.get(shop_id, 0) + 1
+            rec["nearest_shop_price"] = nearest["price_toman"] or 0
+            rec["min_price"] = rec["nearest_shop_price"]
+            merged.append(rec)
+            filled += 1
+        fallback_used = filled > 0
+
+    if offset > 0:
+        page_items = merged[offset: offset + limit]
+    else:
+        page_items = merged[:limit]
+
+    meta = {
+        "products": page_items,
+        "radius_used": radius_km,
+        "fallback": fallback_used,
+        "in_radius_count": len(in_radius_rows),
+        "total": len(in_radius_rows),
+        # The row cap bounds how many in-radius matches we ever count, so a
+        # full cap means "400+" rather than an exact number.
+        "total_capped": len(in_radius_rows) >= _LOCATED_ROW_CAP,
+    }
+
+    with _located_cache_lock:
+        if len(_LOCATED_CACHE) >= _LOCATED_CACHE_MAX:
+            expired = [k for k, v in _LOCATED_CACHE.items()
+                       if now - v[0] > _LOCATED_CACHE_TTL_S]
+            for k in expired:
+                _LOCATED_CACHE.pop(k, None)
+            while len(_LOCATED_CACHE) >= _LOCATED_CACHE_MAX:
+                _LOCATED_CACHE.pop(next(iter(_LOCATED_CACHE)))
+        _LOCATED_CACHE[cache_key] = (now, meta)
+    return meta
 
 
 def search_products_count(q: str = "", category: str = "", brand: str = "") -> int:

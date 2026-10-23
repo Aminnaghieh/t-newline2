@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Header from './components/Header';
 import FiltersBar from './components/FiltersBar';
 import ProductCard from './components/ProductCard';
@@ -50,9 +50,26 @@ export default function App() {
 
   // Results State
   const [products, setProducts] = useState([]);
+  // Meta for the location-aware product catalog (radius used / fallback).
+  const [productsMeta, setProductsMeta] = useState({
+    located: false,
+    fallback: false,
+    radiusUsed: null,
+    total: null,
+    totalCapped: false,
+  });
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [shops, setShops] = useState([]);
   const [selectedShop, setSelectedShop] = useState(null);
+
+  // Tracks the query the current product list came from (chat or catalog
+  // fetch) so a location change can refetch the same thing.
+  const lastQueryRef = useRef('کفش کتونی');
+  // Mirror of filters for use inside debounced timers (no stale closures).
+  // Populated by the effect below, after `filters` is declared.
+  const filtersRef = useRef(null);
+  // Debounce timer for location-triggered product refetches.
+  const productsTimerRef = useRef(null);
 
   // Filters State
   const [filters, setFilters] = useState({
@@ -62,6 +79,12 @@ export default function App() {
     maxBudget: 0,
     radiusKm: 5.0,
   });
+
+  // Mirror filters into a ref (declared above) so debounced location
+  // refetches always read the latest values without stale closures.
+  useEffect(() => {
+    filtersRef.current = filters;
+  }, [filters]);
 
   // Verification & Alternative State
   const [verificationShop, setVerificationShop] = useState(null);
@@ -76,19 +99,51 @@ export default function App() {
   // Initialize session and default product search
   useEffect(() => {
     // Initial fetch of popular products (e.g. sneakers) to populate UI immediately!
-    fetchProducts('کفش کتونی');
+    // Uses the default location so the catalog is nearby-aware from the start.
+    fetchProducts('کفش کتونی', userLocation.lat, userLocation.lon);
   }, []);
 
-  const fetchProducts = async (query = 'کتونی') => {
+  const fetchProducts = async (query = 'کتونی', lat = null, lon = null) => {
+    lastQueryRef.current = query;
     try {
-      const res = await fetch(`/api/products/search?q=${encodeURIComponent(query)}&limit=8`);
+      const params = new URLSearchParams({ q: query, limit: '8' });
+      const located = lat != null && lon != null;
+      if (located) {
+        params.set('lat', String(lat));
+        params.set('lon', String(lon));
+        params.set('radius_km', String(filtersRef.current?.radiusKm || 5));
+        if (filtersRef.current?.maxBudget > 0) {
+          params.set('max_price', String(filtersRef.current.maxBudget));
+        }
+        params.set('sort', 'distance');
+      }
+      const res = await fetch(`/api/products/search?${params.toString()}`);
       const data = await res.json();
       if (data.products && data.products.length > 0) {
         setProducts(data.products);
+      } else if (located) {
+        // Honest empty state for locations the dataset does not cover.
+        setProducts([]);
       }
+      setProductsMeta({
+        located,
+        fallback: Boolean(data.fallback),
+        radiusUsed: data.radius_used ?? null,
+        total: data.total ?? null,
+        totalCapped: Boolean(data.total_capped),
+      });
     } catch (err) {
       console.error('Failed to fetch initial products', err);
     }
+  };
+
+  // Debounced (~400ms) product refetch on location change – fires even when
+  // no product is selected, because discovery itself is location-aware now.
+  const scheduleProductsRefresh = (lat, lon) => {
+    if (productsTimerRef.current) clearTimeout(productsTimerRef.current);
+    productsTimerRef.current = setTimeout(() => {
+      fetchProducts(lastQueryRef.current, lat, lon);
+    }, 400);
   };
 
   // Detect GPS Location
@@ -107,6 +162,10 @@ export default function App() {
           name: 'موقعیت فعلی شما (GPS)',
         });
         setIsDetectingLocation(false);
+        // A new position resets the auto-expanded radius (server-side too)
+        // and refetches the location-aware catalog.
+        setFilters((prev) => ({ ...prev, radiusKm: 5.0 }));
+        scheduleProductsRefresh(latitude, longitude);
         // Refresh shops if product is selected
         if (selectedProduct) {
           fetchShopsForProduct(selectedProduct.product_id, latitude, longitude);
@@ -123,6 +182,11 @@ export default function App() {
 
   const handleLocationSelect = (lat, lon, name) => {
     setUserLocation({ lat, lon, name });
+    // A new position resets the auto-expanded shop radius (the agent resets
+    // its session radius too) and refreshes the location-aware catalog
+    // (debounced ~400ms), even with no product selected.
+    setFilters((prev) => ({ ...prev, radiusKm: 5.0 }));
+    scheduleProductsRefresh(lat, lon);
     if (selectedProduct) {
       fetchShopsForProduct(selectedProduct.product_id, lat, lon);
     }
@@ -160,6 +224,17 @@ export default function App() {
           if (card.type === 'product_list' && card.data?.products) {
             setProducts(card.data.products);
             setActiveTab('products');
+            // Remember the query behind this list so a later location change
+            // refetches the same discovery, and derive banner state from the
+            // nearby fields the agent attached.
+            lastQueryRef.current = card.data.query || lastQueryRef.current;
+            setProductsMeta({
+              located: true,
+              fallback: card.data.products.some((p) => p.in_radius === false),
+              radiusUsed: null,
+              total: null,
+              totalCapped: false,
+            });
           } else if (card.type === 'shop_list' && card.data?.shops) {
             setShops(card.data.shops);
             setActiveTab('shops');
@@ -511,15 +586,51 @@ export default function App() {
 
             {/* Tab 2: Products Catalog */}
             {!isLoading && activeTab === 'products' && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {products.map((p) => (
-                  <ProductCard
-                    key={p.product_id}
-                    product={p}
-                    onSelect={handleSelectProduct}
-                    isSelected={selectedProduct?.product_id === p.product_id}
-                  />
-                ))}
+              <div className="space-y-3">
+                {productsMeta.located && productsMeta.total != null && productsMeta.total > 0 && (
+                  <div data-testid="products-total" className="text-[11px] text-gray-500">
+                    {productsMeta.totalCapped
+                      ? `${productsMeta.total.toLocaleString('fa-IR')}+`
+                      : productsMeta.total.toLocaleString('fa-IR')}{' '}
+                    مدل در محدوده شما پیدا شد
+                  </div>
+                )}
+                {productsMeta.fallback && products.length > 0 && (
+                  <div
+                    data-testid="products-fallback-banner"
+                    className="bg-amber-50 border border-amber-200 text-amber-800 rounded-xl p-3 text-[11px] leading-relaxed"
+                  >
+                    ⚠️ برخی مدل‌ها در شعاع {productsMeta.radiusUsed ?? 5} کیلومتری شما فروشگاه
+                    حضوری ندارند؛ نزدیک‌ترین گزینه‌ها نمایش داده شده‌اند. قیمت‌ها «ثبت‌شده»
+                    هستند، نه تأییدشده.
+                  </div>
+                )}
+                {products.length > 0 ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {products.map((p) => (
+                      <ProductCard
+                        key={p.product_id}
+                        product={p}
+                        onSelect={handleSelectProduct}
+                        isSelected={selectedProduct?.product_id === p.product_id}
+                      />
+                    ))}
+                  </div>
+                ) : productsMeta.located ? (
+                  <div
+                    data-testid="products-empty"
+                    className="bg-white rounded-xl border border-gray-200 p-8 text-center space-y-3"
+                  >
+                    <Package className="w-10 h-10 text-gray-300 mx-auto" />
+                    <h4 className="font-bold text-sm text-gray-700">
+                      در این محدوده محصولی پیدا نشد
+                    </h4>
+                    <p className="text-xs text-gray-400 max-w-sm mx-auto">
+                      دیتاست فقط بخشی از تهران را پوشش می‌دهد. شعاع جستجو را افزایش دهید یا
+                      محله دیگری انتخاب کنید.
+                    </p>
+                  </div>
+                ) : null}
               </div>
             )}
 

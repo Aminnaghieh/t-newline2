@@ -20,6 +20,11 @@ from backend.services.payment import get_bnpl_providers, has_bnpl, get_all_provi
 
 TEHRAN_TZ = timezone(timedelta(hours=3, minutes=30))
 
+# Default nearby-search radius. A wider radius picked by the automatic
+# fallback is a workaround for the *current* position only – it must not
+# survive a location change (see process_message / _handle_area_search).
+DEFAULT_RADIUS_KM = 5.0
+
 # ─── Session Storage (in-memory for hackathon) ─────────────
 _sessions: dict[str, dict] = {}
 
@@ -235,8 +240,14 @@ def process_message(
     # Update location if provided
     has_explicit_location = bool(lat and lon)
     if has_explicit_location:
+        # Reset the (possibly auto-expanded) radius when the user's position
+        # actually changes: the widened radius was a fallback for the old
+        # position, not a standing preference.
+        location_changed = (lat, lon) != (session.get("user_lat"), session.get("user_lon"))
         session["user_lat"] = lat
         session["user_lon"] = lon
+        if location_changed:
+            session["radius_km"] = DEFAULT_RADIUS_KM
 
     # Handle context actions (from UI buttons/cards)
     if context:
@@ -297,8 +308,10 @@ def _handle_search(session: dict, intent: dict) -> dict:
     """Handle product search requests."""
     q = intent.get("search_query", "")
     max_price = intent.get("budget", session.get("budget_max", 0))
+    has_loc = bool(session.get("user_lat") and session.get("user_lon"))
 
-    # Search products
+    # Search products – location-aware when the session has a position, so
+    # each card can show nearby availability (registered prices, distances).
     results = search_products(
         q=q,
         category=intent.get("category", ""),
@@ -306,6 +319,10 @@ def _handle_search(session: dict, intent: dict) -> dict:
         min_price=0,
         max_price=max_price,
         limit=12,
+        lat=session.get("user_lat") if has_loc else None,
+        lon=session.get("user_lon") if has_loc else None,
+        radius_km=session.get("radius_km", DEFAULT_RADIUS_KM),
+        sort="distance",
     )
 
     if not results:
@@ -336,6 +353,11 @@ def _handle_search(session: dict, intent: dict) -> dict:
             "max_price_display": _format_price(p["max_price"]),
             "offer_count": p["offer_count"],
             "specs_summary": p.get("specs_summary", ""),
+            # Nearby availability (present only when the search was located)
+            "nearby_shops_count": p.get("nearby_shops_count", 0),
+            "min_price_nearby": p.get("min_price_nearby", 0),
+            "nearest_distance_m": p.get("nearest_distance_m"),
+            "in_radius": bool(p.get("in_radius", True)),
         })
 
     budget_text = ""
@@ -343,6 +365,14 @@ def _handle_search(session: dict, intent: dict) -> dict:
         budget_text = f" (بودجه: {_format_price(max_price)})"
 
     msg = f"**{len(results)} محصول** برای «{q}»{budget_text} پیدا شد.\n\nمحصول مورد نظرتان را انتخاب کنید تا فروشگاه‌های حضوری نزدیک شما را پیدا کنم. 🏪"
+
+    # Be explicit when fallback items (no shop inside the radius) are mixed in.
+    if has_loc and any(not p.get("in_radius", True) for p in results):
+        msg += (
+            f"\n\n💡 برخی مدل‌ها در شعاع {session.get('radius_km', DEFAULT_RADIUS_KM):g} کیلومتری شما "
+            "فروشگاه حضوری ندارند؛ نزدیک‌ترین گزینه‌ها نمایش داده شده‌اند "
+            "(قیمت‌ها «ثبت‌شده» هستند، نه تأییدشده)."
+        )
 
     return {
         "message": msg,
@@ -969,8 +999,15 @@ def _handle_bnpl_query(session: dict, intent: dict) -> dict:
 def _handle_area_search(session: dict, intent: dict) -> dict:
     """Handle when user specifies an area/location."""
     area = intent.get("area", "")
-    session["user_lat"] = intent.get("lat")
-    session["user_lon"] = intent.get("lon")
+    new_lat = intent.get("lat")
+    new_lon = intent.get("lon")
+
+    # Same rule as process_message: a genuinely new position resets the
+    # auto-expanded radius.
+    if (new_lat, new_lon) != (session.get("user_lat"), session.get("user_lon")):
+        session["radius_km"] = DEFAULT_RADIUS_KM
+    session["user_lat"] = new_lat
+    session["user_lon"] = new_lon
 
     if session.get("selected_product"):
         msg = f"📍 موقعیت شما: **{area}**\n\nدر حال جستجوی فروشگاه‌ها..."

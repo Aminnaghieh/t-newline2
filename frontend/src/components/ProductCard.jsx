@@ -7,6 +7,19 @@ export default function ProductCard({ product, onSelect, isSelected }) {
     return Number(val).toLocaleString('fa-IR');
   };
 
+  const formatDistance = (m) => {
+    if (m == null || m < 0) return '';
+    if (m >= 1000) return `${(m / 1000).toLocaleString('fa-IR', { maximumFractionDigits: 1 })} کیلومتر`;
+    return `${Math.round(m).toLocaleString('fa-IR')} متر`;
+  };
+
+  // Nearby fields are only present on location-aware results (located search
+  // or chat with a session position); classic results render exactly as before.
+  const isLocated = product.nearby_shops_count != null || product.in_radius === false;
+  const inRadius = product.in_radius !== false;
+  const nearbyCount = product.nearby_shops_count ?? product.offer_count ?? 0;
+  const nearestDistance = formatDistance(product.nearest_distance_m);
+
   return (
     <div
       onClick={() => onSelect(product)}
@@ -21,6 +34,16 @@ export default function ProductCard({ product, onSelect, isSelected }) {
         <div className="absolute top-2 left-2 z-10 bg-[#E8453C] text-white p-1 rounded-full shadow-xs">
           <CheckCircle2 className="w-4 h-4" />
         </div>
+      )}
+
+      {/* Out-of-radius badge: this model has no in-person shop near the user */}
+      {isLocated && !inRadius && (
+        <span
+          data-testid="out-of-radius-badge"
+          className="absolute top-2 right-2 z-10 bg-amber-100 text-amber-800 border border-amber-300 text-[9px] font-bold px-1.5 py-0.5 rounded"
+        >
+          خارج از محدوده شما{nearestDistance ? ` · ${nearestDistance}` : ''}
+        </span>
       )}
 
       {/* Image & Main Info */}
@@ -67,17 +90,50 @@ export default function ProductCard({ product, onSelect, isSelected }) {
       {/* Price & Action footer */}
       <div className="mt-3 pt-2.5 border-t border-gray-100 flex items-center justify-between text-xs">
         <div>
-          <span className="text-[10px] text-gray-400 block">شروع قیمت از</span>
-          <span className="font-bold text-gray-900 text-xs text-[#E8453C] price-display">
-            {formatPrice(product.min_price)}
-          </span>
-          <span className="text-[10px] text-gray-400">تومان</span>
+          {isLocated && !inRadius && product.nearest_shop_price > 0 ? (
+            <>
+              <span className="text-[10px] text-gray-400 block">
+                قیمت در نزدیک‌ترین فروشگاه{nearestDistance ? ` (${nearestDistance})` : ''} –
+                ثبت‌شده، تأییدنشده
+              </span>
+              <span className="font-bold text-gray-900 text-xs text-[#E8453C] price-display">
+                {formatPrice(product.nearest_shop_price)}
+              </span>
+              <span className="text-[10px] text-gray-400">تومان</span>
+            </>
+          ) : isLocated && product.min_price_nearby > 0 ? (
+            <>
+              <span className="text-[10px] text-gray-400 block">
+                ارزان‌ترین قیمت نزدیک شما (ثبت‌شده – تأییدنشده)
+              </span>
+              <span className="font-bold text-gray-900 text-xs text-[#E8453C] price-display">
+                {formatPrice(product.min_price_nearby)}
+              </span>
+              <span className="text-[10px] text-gray-400">تومان</span>
+            </>
+          ) : (
+            <>
+              <span className="text-[10px] text-gray-400 block">شروع قیمت از</span>
+              <span className="font-bold text-gray-900 text-xs text-[#E8453C] price-display">
+                {formatPrice(product.min_price)}
+              </span>
+              <span className="text-[10px] text-gray-400">تومان</span>
+            </>
+          )}
         </div>
 
         <div className="flex items-center gap-1.5">
           <span className="text-[11px] text-gray-500 flex items-center gap-1">
             <Store className="w-3.5 h-3.5 text-gray-400" />
-            {product.offer_count ? `${product.offer_count} فروشگاه` : 'موجود'}
+            {isLocated
+              ? nearbyCount > 0
+                ? `${nearbyCount.toLocaleString('fa-IR')} فروشگاه نزدیک`
+                : nearestDistance
+                  ? `نزدیک‌ترین: ${nearestDistance}`
+                  : 'بدون فروشگاه نزدیک'
+              : product.offer_count
+                ? `${product.offer_count} فروشگاه`
+                : 'موجود'}
           </span>
 
           <button

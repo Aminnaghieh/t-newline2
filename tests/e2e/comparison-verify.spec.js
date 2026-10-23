@@ -21,8 +21,13 @@ test.describe('مقایسه و استعلام', () => {
 
     await expect(page.getByText('استعلام هوشمند ایجنت با فروشگاه')).toBeVisible({ timeout: 20_000 });
 
+    // The outcome texts render only after the verify round-trip finishes –
+    // wait for the calling phase to disappear before probing them (otherwise
+    // all three isVisible() probes race the network and read false).
+    await expect(page.getByText('در حال برقراری تماس و استعلام زنده...')).toBeHidden({ timeout: 20_000 });
+
     const hasConfirmed = await page
-      .getByText('کالا موجود است و قیمت تأیید شد')
+      .getByText('موجودی و قیمت قطعی تأیید شد')
       .isVisible()
       .catch(() => false);
     const hasPriceChanged = await page

@@ -215,6 +215,74 @@ class TestShops:
         assert r.status_code == 422  # missing required lat/lon
 
 
+# ── Location-aware product search ─────────────────────────────
+
+class TestLocationSearch:
+    """Additive contract for /api/products/search with lat/lon.
+    The no-location contract is asserted to stay unchanged."""
+
+    def test_search_with_location_returns_nearby_fields(self, client):
+        r = client.get(
+            "/api/products/search",
+            params={"lat": 35.695, "lon": 51.406, "radius_km": 5, "limit": 5},
+        )
+        assert r.status_code == 200
+        body = r.json()
+        assert body["products"], "Charsu area must have in-radius products"
+        assert isinstance(body["fallback"], bool)
+        assert 0 < body["radius_used"] <= 25.0
+        first = body["products"][0]
+        for key in ("nearby_shops_count", "min_price_nearby", "nearest_distance_m", "in_radius"):
+            assert key in first, f"missing nearby key: {key}"
+        assert first["in_radius"] is True
+        assert first["nearby_shops_count"] > 0
+        assert first["min_price_nearby"] > 0
+
+    def test_search_without_location_contract_unchanged(self, client):
+        r = client.get("/api/products/search?q=گوشی")
+        assert r.status_code == 200
+        body = r.json()
+        assert body["total"] > 0
+        assert body["products"]
+        # Classic response carries no nearby fields and no located meta
+        assert "radius_used" not in body
+        assert "fallback" not in body
+        for p in body["products"]:
+            assert "nearby_shops_count" not in p
+            assert "in_radius" not in p
+
+    def test_search_radius_capped_at_25(self, client):
+        r = client.get(
+            "/api/products/search",
+            params={"lat": 35.695, "lon": 51.406, "radius_km": 999, "limit": 3},
+        )
+        assert r.status_code == 200
+        body = r.json()
+        assert body["radius_used"] <= 25.0
+
+    def test_search_shopless_location_uses_fallback(self, client):
+        # 35.831, 51.523: verified 0 dataset shops within 1 km, many within 25 km
+        r = client.get(
+            "/api/products/search",
+            params={"lat": 35.831, "lon": 51.523, "radius_km": 1, "limit": 8},
+        )
+        assert r.status_code == 200
+        body = r.json()
+        assert body["fallback"] is True
+        assert body["products"]
+        assert all(p["in_radius"] is False for p in body["products"])
+        assert all(p["nearby_shops_count"] == 0 for p in body["products"])
+        dists = [p["nearest_distance_m"] for p in body["products"]]
+        assert all(d is not None for d in dists)
+        assert dists == sorted(dists)  # fallback ordered by nearest distance
+
+    def test_search_location_changes_result_order(self, client):
+        r1 = client.get("/api/products/search", params={"lat": 35.695, "lon": 51.406, "limit": 8})
+        r2 = client.get("/api/products/search", params={"lat": 35.7789, "lon": 51.3767, "limit": 8})
+        ids1 = [p["product_id"] for p in r1.json()["products"]]
+        ids2 = [p["product_id"] for p in r2.json()["products"]]
+        assert ids1 != ids2, "different locations must yield different product lists"
+
 # ── Chat agent ────────────────────────────────────────────────
 
 class TestChatAgent:

@@ -4,6 +4,7 @@ Serves both the API and the frontend static files.
 """
 
 import os
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
@@ -12,10 +13,55 @@ from fastapi.middleware.cors import CORSMiddleware
 from backend.database import db_exists
 from backend.routers import chat, products, shops
 
+
+def _warmup():
+    """Idempotent startup warm-up.
+
+    1. (Re)create the hot-path indexes – CREATE INDEX IF NOT EXISTS is a
+       no-op when ingest.py already built them.
+    2. Run the heaviest catalog queries once so the SQLite page cache is
+       warm and the first real request is fast (observed ~14s cold → ~1s).
+    Failures are swallowed: a missing database must not block startup.
+    """
+    try:
+        from backend.database import get_conn
+        conn = get_conn()
+        conn.executescript("""
+            CREATE INDEX IF NOT EXISTS idx_shops_lat_lon ON shops(lat, lon);
+            CREATE INDEX IF NOT EXISTS idx_offers_shop ON offers(shop_id);
+            CREATE INDEX IF NOT EXISTS idx_offers_product ON offers(product_id);
+        """)
+        conn.commit()
+
+        from backend.services.search import search_products
+        # Warm only the paths the UI actually exercises, in the order they
+        # are hit after a cold start. (The classic no-filter catalog query is
+        # deliberately NOT warmed: the UI never issues it and it aggregates
+        # the whole 225k-product table.)
+        search_products(q="کفش کتونی", limit=8)                                  # classic text search
+        search_products(q="کفش کتونی", limit=8, lat=35.695, lon=51.406,
+                        radius_km=5.0)                                            # UI initial catalog (located)
+        search_products(q="", limit=8, lat=35.695, lon=51.406, radius_km=5.0)     # located browse / fallback paths
+        # Pre-populate the located-search TTL cache for the two reference
+        # areas so their first real request is served from memory.
+        search_products(q="", limit=8, lat=35.7789, lon=51.3767, radius_km=5.0)   # Saadat Abad (cache warm)
+    except Exception:
+        # Missing/empty database (e.g. fresh clone before ingest) – the app
+        # must still boot; endpoints will surface the real state via /api/health.
+        pass
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    _warmup()
+    yield
+
+
 app = FastAPI(
     title="ترب‌گرد | TorobGard",
     description="دستیار هوشمند خرید حضوری تهران",
     version="1.0.0",
+    lifespan=lifespan,
 )
 
 # CORS for development

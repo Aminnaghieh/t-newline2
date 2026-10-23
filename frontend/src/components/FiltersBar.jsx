@@ -48,14 +48,14 @@ export default function FiltersBar({
   };
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 p-3 shadow-xs space-y-3">
+    <div className="bg-white rounded-lg border border-torob-line p-3 shadow-card space-y-3">
       {/* Top row: Summary + Reset */}
-      <div className="flex items-center justify-between text-xs border-b border-gray-100 pb-2">
-        <div className="flex items-center gap-1.5 font-bold text-gray-800">
-          <SlidersHorizontal className="w-4 h-4 text-[#E8453C]" />
+      <div className="flex items-center justify-between text-xs border-b border-torob-line pb-2">
+        <div className="flex items-center gap-1.5 font-bold text-torob-dark">
+          <SlidersHorizontal className="w-4 h-4 text-torob-red" />
           <span>فیلترها و تنظیمات جستجو</span>
           {activeCount > 0 && (
-            <span className="bg-[#E8453C] text-white text-[10px] font-bold px-1.5 py-0.2 rounded-full">
+            <span className="bg-torob-red text-white text-[10px] font-bold px-1.5 py-0.2 rounded-full">
               {activeCount}
             </span>
           )}
@@ -67,7 +67,7 @@ export default function FiltersBar({
               onFilterChange(resetFilters);
               if (onApply) onApply(resetFilters);
             }}
-            className="text-[#E8453C] hover:underline font-semibold cursor-pointer"
+            className="text-torob-red hover:underline font-semibold cursor-pointer"
           >
             پاک کردن فیلترها
           </button>
@@ -82,7 +82,7 @@ export default function FiltersBar({
           className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border font-medium transition-all cursor-pointer ${
             filters.onlyOpen
               ? 'bg-emerald-50 text-emerald-700 border-emerald-300 font-semibold shadow-xs'
-              : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100'
+              : 'bg-torob-surface text-torob-ink-2 border-torob-line hover:bg-torob-surface-2'
           }`}
         >
           <Clock className="w-3.5 h-3.5 text-emerald-600" />
@@ -96,7 +96,7 @@ export default function FiltersBar({
           className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border font-medium transition-all cursor-pointer ${
             filters.onlyMalls
               ? 'bg-purple-50 text-purple-700 border-purple-300 font-semibold shadow-xs'
-              : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100'
+              : 'bg-torob-surface text-torob-ink-2 border-torob-line hover:bg-torob-surface-2'
           }`}
         >
           <Building2 className="w-3.5 h-3.5 text-purple-600" />
@@ -105,9 +105,9 @@ export default function FiltersBar({
         </button>
 
         {/* Radius Selector */}
-        <div className="flex items-center gap-1 bg-gray-50 border border-gray-200 rounded-lg px-2.5 py-1">
-          <MapPin className="w-3.5 h-3.5 text-blue-500" />
-          <span className="text-gray-500 text-[11px]">شعاع:</span>
+        <div className="flex items-center gap-1 bg-torob-surface border border-torob-line rounded-lg px-2.5 py-1">
+          <MapPin className="w-3.5 h-3.5 text-torob-blue" />
+          <span className="text-torob-muted text-[11px]">شعاع:</span>
           <select
             value={filters.radiusKm}
             onChange={(e) => update({ radiusKm: Number(e.target.value) })}
@@ -122,9 +122,9 @@ export default function FiltersBar({
         </div>
 
         {/* Budget Selector */}
-        <div className="flex items-center gap-1 bg-gray-50 border border-gray-200 rounded-lg px-2.5 py-1">
+        <div className="flex items-center gap-1 bg-torob-surface border border-torob-line rounded-lg px-2.5 py-1">
           <Wallet className="w-3.5 h-3.5 text-emerald-600" />
-          <span className="text-gray-500 text-[11px]">سقف بودجه:</span>
+          <span className="text-torob-muted text-[11px]">سقف بودجه:</span>
           <select
             value={filters.maxBudget}
             onChange={(e) => update({ maxBudget: Number(e.target.value) })}
@@ -140,7 +140,7 @@ export default function FiltersBar({
 
         {/* BNPL Provider Chips */}
         <div className="flex items-center gap-1.5 flex-wrap">
-          <span className="text-gray-400 text-[11px] flex items-center gap-1">
+          <span className="text-torob-muted text-[11px] flex items-center gap-1">
             <CreditCard className="w-3.5 h-3.5 text-amber-500" />
             خرید اقساطی:
           </span>
@@ -154,10 +154,10 @@ export default function FiltersBar({
                     bnplProvider: isSelected ? '' : provider,
                   })
                 }
-                className={`px-2.5 py-1 rounded-md border text-xs transition-all cursor-pointer font-medium ${
+                className={`px-2.5 py-1 rounded-lg border text-xs transition-all cursor-pointer font-medium ${
                   isSelected
                     ? 'bg-amber-500 text-white border-amber-600 shadow-xs'
-                    : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100'
+                    : 'bg-torob-surface text-torob-ink-2 border-torob-line hover:bg-torob-surface-2'
                 }`}
               >
                 {provider}
@@ -168,7 +168,7 @@ export default function FiltersBar({
       </div>
 
       {/* Result count */}
-      <div className="text-[11px] text-gray-400 border-t border-gray-100 pt-2">
+      <div className="text-[11px] text-torob-muted border-t border-torob-line pt-2">
         {totalResults} فروشگاه با فیلترهای فعلی نمایش داده می‌شود
       </div>
     </div>

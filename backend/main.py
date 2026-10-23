@@ -15,10 +15,11 @@ from backend.routers import chat, products, shops
 
 
 def _warmup():
-    """Idempotent startup warm-up.
+    """Idempotent startup warm-up (runs in a background thread).
 
     1. (Re)create the hot-path indexes – CREATE INDEX IF NOT EXISTS is a
-       no-op when ingest.py already built them.
+       no-op when they already exist. idx_offers_product_price is the
+       covering index that fixes the classic no-location search (see below).
     2. Run the heaviest catalog queries once so the SQLite page cache is
        warm and the first real request is fast (observed ~14s cold → ~1s).
     Failures are swallowed: a missing database must not block startup.
@@ -30,6 +31,7 @@ def _warmup():
             CREATE INDEX IF NOT EXISTS idx_shops_lat_lon ON shops(lat, lon);
             CREATE INDEX IF NOT EXISTS idx_offers_shop ON offers(shop_id);
             CREATE INDEX IF NOT EXISTS idx_offers_product ON offers(product_id);
+            CREATE INDEX IF NOT EXISTS idx_offers_product_price ON offers(product_id, price_toman);
         """)
         conn.commit()
 
@@ -53,7 +55,11 @@ def _warmup():
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    _warmup()
+    # Warm up in a background daemon thread so the server accepts requests
+    # immediately. Requests that arrive before the warm-up finishes still
+    # work – they just miss the cache/page-cache and run slower.
+    import threading
+    threading.Thread(target=_warmup, name="torobgard-warmup", daemon=True).start()
     yield
 
 

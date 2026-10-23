@@ -1,11 +1,14 @@
 """
 chat.py – Main chat/agent API endpoint.
+Routed through the LLM-orchestrated agent with automatic rule-based
+fallback; the response always carries both legacy `cards` and the new
+validated `ui` blocks (see services/ui_schema.py).
 """
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter
 from pydantic import BaseModel
 from typing import Optional
-from backend.services.agent import process_message
+from backend.services.llm_agent import handle_chat
 
 router = APIRouter(prefix="/api", tags=["chat"])
 
@@ -21,7 +24,7 @@ class ChatRequest(BaseModel):
 @router.post("/chat")
 async def chat(req: ChatRequest):
     """Main chat endpoint – processes user messages and returns structured responses."""
-    result = process_message(
+    result = handle_chat(
         message=req.message,
         session_id=req.session_id or "",
         lat=req.lat,

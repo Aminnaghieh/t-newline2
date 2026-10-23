@@ -49,17 +49,17 @@ export default function ShopCard({
     <div
       onClick={() => onSelect && onSelect(shop)}
       data-testid="shop-card"
-      className={`bg-white rounded-xl border p-4 transition-all duration-200 hover:shadow-md ${
+      className={`bg-white rounded-lg border p-4 transition-all duration-200 hover:shadow-card ${
         isSelected
-          ? 'border-[#E8453C] ring-2 ring-red-100 shadow-sm'
-          : 'border-gray-200 hover:border-gray-300'
+          ? 'border-torob-red ring-2 ring-torob-red-400/20 shadow-sm'
+          : 'border-torob-line hover:border-gray-300'
       }`}
     >
       {/* Top Header: Shop Name & Distance */}
       <div className="flex items-start justify-between gap-3">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap mb-1">
-            <h3 className="font-bold text-gray-900 text-sm hover:text-[#E8453C] transition-colors cursor-pointer">
+            <h3 className="font-bold text-torob-dark text-sm hover:text-torob-red transition-colors cursor-pointer">
               {shop.name}
             </h3>
 
@@ -118,7 +118,7 @@ export default function ShopCard({
         <div>
           <span className="text-[10px] text-gray-400 block">قیمت ثبت‌شده در ترب:</span>
           <div className="flex items-baseline gap-1.5">
-            <span className="font-black text-sm text-[#E8453C] price-display">
+            <span className="font-black text-sm text-torob-red price-display">
               {formatPrice(shop.price_toman)}
             </span>
             <span className="text-[10px] text-gray-400">تومان</span>
@@ -175,7 +175,7 @@ export default function ShopCard({
             onVerify(shop);
           }}
           data-testid="verify-shop-btn"
-          className="flex items-center justify-center gap-1 bg-[#E8453C] hover:bg-[#d03a31] text-white text-xs font-bold py-2 px-2.5 rounded-lg transition-colors cursor-pointer shadow-xs"
+          className="flex items-center justify-center gap-1 bg-torob-red hover:bg-torob-red-dark text-white text-xs font-bold py-2 px-2.5 rounded-lg transition-colors cursor-pointer shadow-xs"
         >
           <PhoneCall className="w-3.5 h-3.5" />
           <span>استعلام زنده</span>
@@ -188,7 +188,7 @@ export default function ShopCard({
             onFindAlternatives(shop);
           }}
           data-testid="alternatives-btn"
-          className="flex items-center justify-center gap-1 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold py-2 px-2.5 rounded-lg transition-colors cursor-pointer"
+          className="flex items-center justify-center gap-1 bg-torob-surface-2 hover:bg-gray-200 text-torob-ink-2 text-xs font-semibold py-2 px-2.5 rounded-lg transition-colors cursor-pointer"
         >
           <Repeat className="w-3.5 h-3.5 text-gray-500" />
           <span>فروشگاه‌های جایگزین</span>

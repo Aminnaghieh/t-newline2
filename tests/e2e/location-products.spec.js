@@ -72,4 +72,18 @@ test.describe('کشف محصول بر اساس موقعیت مکانی', () => {
     // Nearby fields rendered on chat-driven results too
     await expect(page.getByTestId('product-card').first()).toContainText('فروشگاه نزدیک');
   });
+
+  test('در حالت fallback سطر جمع، «در محدوده شما» را نمی‌گوید و متن جایگزین را نشان می‌دهد', async ({
+    page,
+  }) => {
+    // Same verified no-coverage point: zero shops within 5 km -> pure fallback
+    await page.context().setGeolocation({ latitude: 35.831, longitude: 51.523 });
+    await page.getByTitle('موقعیت فعلی من (GPS)').click();
+
+    const fallbackLine = page.getByTestId('products-total-fallback');
+    await expect(fallbackLine).toBeVisible({ timeout: 20_000 });
+    await expect(fallbackLine).toHaveText('در محدوده شما محصولی پیدا نشد؛ نزدیک‌ترین‌ها را نشان می‌دهیم');
+    // The regular "in your area" count line must not be present
+    await expect(page.getByTestId('products-total')).toBeHidden();
+  });
 });

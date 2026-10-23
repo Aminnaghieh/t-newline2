@@ -20,20 +20,17 @@ def _normalize_query(q: str) -> str:
     return q
 
 
-def _fts_query(q: str) -> str:
-    """
-    Convert user query to an FTS5 query string.
+def _clean_token(t: str) -> str:
+    """Strip characters with special meaning in FTS5 syntax."""
+    return re.sub(r'[^\w\u0600-\u06FF]', '', t)
 
-    Uses OR between tokens instead of AND: a real user query such as
-    «کتونی راحت برای پیاده روی تا ۳ میلیون» contains many tokens that will
-    never all appear in a single product title. OR + bm25 ranking keeps the
-    most relevant products at the top instead of returning zero rows.
-    """
+
+def _fts_query(q: str) -> str:
+    """Convert user query to an FTS5 query string safely."""
     q = _normalize_query(q)
-    tokens = q.split()
-    # Use prefix matching for each token
+    tokens = [_clean_token(t) for t in q.split()]
     parts = [f'"{t}"*' for t in tokens if len(t) >= 2]
-    return " OR ".join(parts) if parts else q
+    return " OR ".join(parts) if parts else ""
 
 
 def search_products(
@@ -71,16 +68,14 @@ def search_products(
     fts_params: list = []
     rank_expr = "0"
     if q:
-        # NOTE: the FTS table must be referenced by its real name (no alias) –
-        # SQLite cannot resolve `MATCH` against an aliased FTS5 table.
-        join_fts = (
-            "JOIN products_fts ON products_fts.product_id = p.product_id "
-            "AND products_fts MATCH ?"
-        )
-        fts_params.append(_fts_query(q))
-        # bm25() returns a negative score – the more negative, the better match.
-        # Weights: title, brand, category (product_id is UNINDEXED).
-        rank_expr = "bm25(products_fts, 10.0, 5.0, 3.0, 1.0)"
+        fts_q = _fts_query(q)
+        if fts_q:
+            join_fts = (
+                "JOIN products_fts ON products_fts.product_id = p.product_id "
+                "AND products_fts MATCH ?"
+            )
+            fts_params.append(fts_q)
+            rank_expr = "bm25(products_fts, 10.0, 5.0, 3.0, 1.0)"
 
     if category:
         conditions.append("p.category_name LIKE ?")
@@ -443,11 +438,13 @@ def search_products_located(
     fts_prefilter = ""
     fts_params: list = []
     if q:
-        fts_prefilter = (
-            "AND o.product_id IN "
-            "(SELECT product_id FROM products_fts WHERE products_fts MATCH ?)"
-        )
-        fts_params.append(_fts_query(q))
+        fts_q = _fts_query(q)
+        if fts_q:
+            fts_prefilter = (
+                "AND o.product_id IN "
+                "(SELECT product_id FROM products_fts WHERE products_fts MATCH ?)"
+            )
+            fts_params.append(fts_q)
 
     # Param order follows the textual order of placeholders:
     # shopd(haversine+box) -> cand(fts prefilter) -> agg(radius cases)
@@ -567,8 +564,9 @@ def search_products_count(q: str = "", category: str = "", brand: str = "") -> i
     params = []
     if q:
         fts_q = _fts_query(q)
-        conditions.append("product_id IN (SELECT product_id FROM products_fts WHERE products_fts MATCH ?)")
-        params.append(fts_q)
+        if fts_q:
+            conditions.append("product_id IN (SELECT product_id FROM products_fts WHERE products_fts MATCH ?)")
+            params.append(fts_q)
     if category:
         conditions.append("category_name LIKE ?")
         params.append(f"%{category}%")

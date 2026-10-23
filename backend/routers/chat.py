@@ -6,7 +6,7 @@ validated `ui` blocks (see services/ui_schema.py).
 """
 
 from fastapi import APIRouter
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Optional
 from backend.services.llm_agent import handle_chat
 
@@ -14,11 +14,11 @@ router = APIRouter(prefix="/api", tags=["chat"])
 
 
 class ChatRequest(BaseModel):
-    message: str = ""
-    lat: Optional[float] = None
-    lon: Optional[float] = None
-    session_id: Optional[str] = ""
-    context: Optional[dict] = None
+    message: str = Field("", max_length=1000, description="User message text")
+    lat: Optional[float] = Field(None, ge=-90.0, le=90.0, description="User latitude")
+    lon: Optional[float] = Field(None, ge=-180.0, le=180.0, description="User longitude")
+    session_id: Optional[str] = Field("", max_length=128, description="Client session ID")
+    context: Optional[dict] = Field(None, description="Contextual actions")
 
 
 @router.post("/chat")

@@ -6,11 +6,7 @@ import {
   XCircle,
   Repeat,
   X,
-  Store,
-  Clock,
-  Sparkles,
-  ArrowLeft,
-  Navigation,
+  ShieldCheck,
 } from 'lucide-react';
 
 export default function VerificationModal({
@@ -34,7 +30,6 @@ export default function VerificationModal({
     setUpdatedPrice(0);
     setError('');
 
-    // Ask the agent to contact the store and verify live stock/price.
     let cancelled = false;
     const run = async () => {
       try {
@@ -59,7 +54,6 @@ export default function VerificationModal({
         setOutcome(status);
         let finalPrice = shop.price_toman || 0;
         if (status === 'price_changed') {
-          // Prefer the price reported by the agent, fall back to the listed one
           finalPrice = card?.data?.new_price || shop.price_toman || 0;
           setUpdatedPrice(finalPrice);
         }
@@ -90,23 +84,31 @@ export default function VerificationModal({
 
   return (
     <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl max-w-md w-full shadow-2xl border border-gray-100 overflow-hidden animate-slide-up">
-        {/* Modal Header */}
-        <div className="bg-gradient-to-r from-gray-900 to-gray-800 text-white p-4 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-[#E8453C] flex items-center justify-center text-white">
+      <div className="bg-white rounded-2xl max-w-md w-full shadow-2xl border border-[#e6e6e6] overflow-hidden animate-slide-up">
+        {/* Torob Modal Header */}
+        <div className="bg-white border-b border-[#e6e6e6] p-4 flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <div className="w-9 h-9 rounded-xl bg-[#fff0f2] border border-[#f5c2c7] flex items-center justify-center text-[#d73948]">
               <PhoneCall className="w-4 h-4" />
             </div>
             <div>
-              <h3 className="font-bold text-sm">استعلام هوشمند ایجنت با فروشگاه</h3>
-              <p className="text-[11px] text-gray-300">{shop.name}</p>
+              <div className="flex items-center gap-1.5">
+                <h3 className="font-extrabold text-sm text-[#222222]">
+                  استعلام زنده موجودی و قیمت ترب
+                </h3>
+                <span className="bg-[#eff6ff] text-[#3468cc] text-[10px] font-bold px-1.5 py-0.2 rounded border border-[#bfdbfe] flex items-center gap-0.5">
+                  <ShieldCheck className="w-2.5 h-2.5" />
+                  <span>ضمانت ترب</span>
+                </span>
+              </div>
+              <p className="text-[11px] text-[#888888] font-medium mt-0.5">{shop.name}</p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-white transition-colors cursor-pointer p-1"
+            className="text-[#888888] hover:text-[#222222] hover:bg-[#f2f3f5] rounded-lg transition-colors cursor-pointer p-1.5"
           >
-            <X className="w-5 h-5" />
+            <X className="w-4 h-4" />
           </button>
         </div>
 
@@ -116,64 +118,64 @@ export default function VerificationModal({
             /* Calling Animation */
             <div className="py-8 flex flex-col items-center justify-center text-center">
               <div className="relative w-20 h-20 mb-4 flex items-center justify-center">
-                <div className="absolute inset-0 rounded-full bg-red-100 animate-ping opacity-75" />
-                <div className="relative w-16 h-16 rounded-full bg-red-50 border-2 border-[#E8453C] flex items-center justify-center text-[#E8453C]">
+                <div className="absolute inset-0 rounded-full bg-[#fff0f2] animate-ping opacity-80" />
+                <div className="relative w-16 h-16 rounded-full bg-[#fff0f2] border-2 border-[#d73948] flex items-center justify-center text-[#d73948]">
                   <PhoneCall className="w-7 h-7 animate-bounce" />
                 </div>
               </div>
-              <h4 className="font-extrabold text-gray-900 text-sm mb-1">
-                در حال برقراری تماس و استعلام زنده...
+              <h4 className="font-extrabold text-[#222222] text-sm mb-1">
+                در حال استعلام لحظه‌ای دستیار هوشمند ترب با فروشنده...
               </h4>
-              <p className="text-xs text-gray-500 max-w-xs leading-relaxed">
-                ایجنت در حال بررسی لحظه‌ای موجودی و راستی‌آزمایی قیمت کالا از فروشنده است.
+              <p className="text-xs text-[#888888] max-w-xs leading-relaxed">
+                ایجنت ترب در حال بررسی موجودی فیزیکی کالا و تایید قیمت نهایی امروز در فروشگاه است.
               </p>
             </div>
           ) : (
             /* Result Screen */
             <div className="space-y-4">
               {error && (
-                <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-amber-900">
-                  <div className="flex items-center gap-2 mb-2 font-bold text-amber-800">
-                    <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0" />
+                <div className="bg-[#fff8e6] border border-[#fde68a] rounded-xl p-4 text-[#92400e]">
+                  <div className="flex items-center gap-2 mb-2 font-bold text-[#b45309]">
+                    <AlertTriangle className="w-5 h-5 text-[#f59e0b] shrink-0" />
                     <span>استعلام انجام نشد</span>
                   </div>
-                  <p className="text-xs text-amber-700 leading-relaxed">{error}</p>
+                  <p className="text-xs text-[#92400e] leading-relaxed">{error}</p>
                 </div>
               )}
 
               {!error && outcome === 'confirmed' && (
-                <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 text-emerald-900">
-                  <div className="flex items-center gap-2 mb-2 font-bold text-emerald-800">
-                    <CheckCircle className="w-5 h-5 text-emerald-600 shrink-0" />
-                    <span>موجودی و قیمت قطعی تأیید شد!</span>
+                <div className="bg-[#eefceb] border border-[#b7ebae] rounded-xl p-4 text-[#14532d]">
+                  <div className="flex items-center gap-2 mb-2 font-extrabold text-[#248212]">
+                    <CheckCircle className="w-5 h-5 text-[#16a34a] shrink-0" />
+                    <span>موجودی و قیمت قطعی در فروشگاه تأیید شد!</span>
                   </div>
-                  <p className="text-xs text-emerald-700 leading-relaxed mb-3">
-                    فروشنده موجودی این کالا را در فروشگاه تأیید کرد و قیمت{' '}
-                    <strong className="font-black text-emerald-900">
+                  <p className="text-xs text-[#166534] leading-relaxed mb-3">
+                    فروشنده موجودی این کالا را در مغازه تأیید کرد و قیمت ثبت‌شده در ترب{' '}
+                    <strong className="font-black text-[#14532d]">
                       {formatPrice(shop.price_toman)} تومان
                     </strong>{' '}
-                    معتبر است.
+                    کاملاً معتبر است.
                   </p>
-                  <div className="text-[11px] bg-white/80 rounded-lg p-2.5 border border-emerald-100 space-y-1">
-                    <div>🕒 ساعت کاری امروز: {shop.hours_detail || shop.open_status}</div>
-                    {shop.mall_guide && <div>🏬 موقعیت در پاساژ: {shop.mall_guide}</div>}
+                  <div className="text-[11px] bg-white rounded-lg p-3 border border-[#b7ebae] space-y-1 text-[#333333]">
+                    <div>🕒 وضعیت ساعت کاری: {shop.hours_detail || shop.open_status}</div>
+                    {shop.mall_guide && <div>🏬 آدرس دقیق داخل پاساژ: {shop.mall_guide}</div>}
                   </div>
                 </div>
               )}
 
               {!error && outcome === 'price_changed' && (
-                <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-amber-900">
-                  <div className="flex items-center gap-2 mb-2 font-bold text-amber-800">
-                    <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0" />
-                    <span>کالا موجود است؛ اما تغییر قیمت ثبت شد!</span>
+                <div className="bg-[#fff8e6] border border-[#fde68a] rounded-xl p-4 text-[#92400e]">
+                  <div className="flex items-center gap-2 mb-2 font-extrabold text-[#b45309]">
+                    <AlertTriangle className="w-5 h-5 text-[#f59e0b] shrink-0" />
+                    <span>کالا موجود است؛ اما تغییر قیمت لحظه‌ای ثبت شد!</span>
                   </div>
-                  <p className="text-xs text-amber-700 leading-relaxed mb-3">
-                    قیمت ثبت‌شده در ترب {formatPrice(shop.price_toman)} تومان بود، اما فروشنده قیمت امروز
-                    را اعلام کرد:
+                  <p className="text-xs text-[#92400e] leading-relaxed mb-3">
+                    قیمت قبلی در ترب {formatPrice(shop.price_toman)} تومان بود، اما فروشنده قیمت قطعی
+                    امروز را اعلام کرد:
                   </p>
-                  <div className="bg-white rounded-lg p-3 border border-amber-200 flex items-center justify-between">
-                    <span className="text-xs text-gray-500">قیمت قطعی روز:</span>
-                    <span className="font-black text-amber-800 text-sm">
+                  <div className="bg-white rounded-lg p-3 border border-[#fde68a] flex items-center justify-between">
+                    <span className="text-xs text-[#555555] font-medium">قیمت جدید تاییدشده:</span>
+                    <span className="font-black text-[#d73948] text-sm">
                       {formatPrice(updatedPrice)} تومان
                     </span>
                   </div>
@@ -181,21 +183,21 @@ export default function VerificationModal({
               )}
 
               {!error && outcome === 'no_response' && (
-                <div className="bg-rose-50 border border-rose-200 rounded-xl p-4 text-rose-900">
-                  <div className="flex items-center gap-2 mb-2 font-bold text-rose-800">
-                    <XCircle className="w-5 h-5 text-rose-600 shrink-0" />
-                    <span>فروشگاه پاسخگو نیست یا بسته است!</span>
+                <div className="bg-[#fff0f2] border border-[#f5c2c7] rounded-xl p-4 text-[#7f161e]">
+                  <div className="flex items-center gap-2 mb-2 font-extrabold text-[#d73948]">
+                    <XCircle className="w-5 h-5 text-[#d73948] shrink-0" />
+                    <span>فروشگاه پاسخگو نیست یا در حال حاضر بسته است!</span>
                   </div>
-                  <p className="text-xs text-rose-700 leading-relaxed mb-3">
-                    فروشگاه «{shop.name}» در حال حاضر پاسخ نداد. برای جلوگیری از اتلاف وقت شما در
-                    مسیر، سیستم ایجنتیک فوراً فروشگاه‌های جایگزین باز در همین محدوده را پیدا کرده است.
+                  <p className="text-xs text-[#7f161e] leading-relaxed mb-3">
+                    فروشگاه «{shop.name}» در حال حاضر پاسخگو نبود. برای جلوگیری از اتلاف وقت شما در
+                    بازار، دستیار هوشمند ترب فوراً فروشگاه‌های جایگزین باز در همین محدوده را آماده کرده است.
                   </p>
                   <button
                     onClick={() => {
                       onClose();
                       onFindAlternatives(shop);
                     }}
-                    className="w-full flex items-center justify-center gap-2 bg-[#E8453C] hover:bg-[#d03a31] text-white font-bold text-xs py-2.5 px-3 rounded-lg transition-colors cursor-pointer shadow-xs"
+                    className="w-full flex items-center justify-center gap-2 bg-[#d73948] hover:bg-[#ae1f27] text-white font-bold text-xs py-2.5 px-3 rounded-lg transition-colors cursor-pointer shadow-2xs"
                   >
                     <Repeat className="w-4 h-4" />
                     <span>مشاهده نزدیک‌ترین فروشگاه‌های جایگزین باز</span>
@@ -208,14 +210,14 @@ export default function VerificationModal({
                 {outcome !== 'no_response' && (
                   <button
                     onClick={onClose}
-                    className="flex-1 bg-[#E8453C] hover:bg-[#d03a31] text-white font-bold text-xs py-2.5 px-3 rounded-lg transition-colors cursor-pointer text-center"
+                    className="flex-1 bg-[#d73948] hover:bg-[#ae1f27] text-white font-bold text-xs py-2.5 px-3 rounded-lg transition-colors cursor-pointer text-center"
                   >
-                    متوجه شدم و آماده مراجعه‌ام
+                    تأیید و مراجعه حضوری
                   </button>
                 )}
                 <button
                   onClick={onClose}
-                  className="bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold text-xs py-2.5 px-3 rounded-lg transition-colors cursor-pointer"
+                  className="bg-[#f2f3f5] hover:bg-[#e6e6e6] text-[#333333] font-bold text-xs py-2.5 px-4 rounded-lg transition-colors cursor-pointer"
                 >
                   بستن
                 </button>

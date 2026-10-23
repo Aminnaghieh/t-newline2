@@ -1,182 +1,235 @@
 @import "tailwindcss";
 
 @theme {
-  /* ── TorobGard design tokens ─────────────────────────────────
-     Values extracted from torob.com production CSS/HTML
-     (study phase – no assets copied). Tailwind default radius scale
-     already matches torob.com (rounded-lg = 8px, rounded-2xl = 16px). */
-  --color-torob-red: #ae1f27;        /* brand red (torob.com markup) */
-  --color-torob-red-dark: #7f161e;  /* darker hover shade */
-  --color-torob-red-600: #c61616;   /* torob --red-500 equivalent */
-  --color-torob-red-400: #d73948;   /* lighter red */
-  --color-torob-red-light: #fff0f2; /* torob red-50 surface */
-  --color-torob-ink: #333333;       /* primary text */
-  --color-torob-ink-2: #374151;      /* secondary text */
-  --color-torob-muted: #9ca3af;     /* muted text */
-  --color-torob-surface: #f9fafb;    /* light surface */
-  --color-torob-surface-2: #f1f5f9;  /* slate-100 surface */
-  --color-torob-line: #e5e7eb;       /* borders/dividers */
-  --color-torob-price: #248212;      /* green price text */
-  --color-torob-price-bg: #eefceb;   /* green price tag bg */
-  --color-torob-lime: #9ce76a;       /* torob price-tag lime */
-  --color-torob-blue: #3468cc;       /* torob link/action blue */
-  --color-torob-gray: #f5f5f5;       /* legacy neutral bg (kept) */
-  --color-torob-dark: #1e293b;       /* headings / dark surface */
-  --color-torob-green: #22c55e;
-  --color-torob-yellow: #ffca32;     /* torob warning yellow */
-  --color-torob-blue-400: #3b82f6;    /* legacy accent (kept) */
-  --font-family-sans: 'Vazirmatn', system-ui, -apple-system, sans-serif;
+  /* ── Torob Official Design Tokens (torob.com) ─────────────────── */
+  --color-torob-red: #d73948;         /* Primary Torob brand crimson-red */
+  --color-torob-red-dark: #ae1f27;    /* Hover / pressed deep red */
+  --color-torob-red-600: #c61616;     /* Accent deep red */
+  --color-torob-red-400: #e04f5d;     /* Lighter red tint */
+  --color-torob-red-light: #fff0f2;   /* Soft red surface (active chips/pills) */
+  --color-torob-ink: #333333;         /* Primary text on torob.com */
+  --color-torob-ink-2: #555555;       /* Secondary text */
+  --color-torob-muted: #888888;       /* Muted captions & labels */
+  --color-torob-surface: #f2f3f5;     /* Main page canvas gray (#f2f3f5) */
+  --color-torob-surface-2: #f8f9fa;   /* Secondary card/input surface */
+  --color-torob-line: #e6e6e6;        /* Crisp subtle dividers & borders */
+  --color-torob-price: #248212;       /* Torob green price highlight */
+  --color-torob-price-bg: #eefceb;    /* Green price tag background */
+  --color-torob-lime: #9ce76a;        /* Torob lime badge */
+  --color-torob-blue: #3468cc;        /* Torob Guarantee (ضمانت ترب) & links */
+  --color-torob-gray: #f5f5f5;        /* Neutral background */
+  --color-torob-dark: #222222;        /* Strong headings */
+  --color-torob-green: #16a34a;       /* Verified / open store green */
+  --color-torob-yellow: #f59e0b;      /* Price alert / installment gold */
+  --color-torob-blue-400: #3b82f6;
+  --font-family-sans: 'Vazirmatn', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
 
-  /* torob.com elevation */
-  --shadow-card: 0 4px 12px 0 rgba(51, 51, 51, 0.2);
-  --shadow-sheet: 0 4px 20px rgba(0, 0, 0, 0.15);
+  /* Torob card & modal elevations */
+  --shadow-card: 0 2px 8px 0 rgba(0, 0, 0, 0.06);
+  --shadow-card-hover: 0 6px 18px 0 rgba(0, 0, 0, 0.1);
+  --shadow-sheet: 0 8px 30px rgba(0, 0, 0, 0.16);
 }
 
-/* Custom scrollbar */
-::-webkit-scrollbar { width: 4px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: #ddd; border-radius: 4px; }
+/* Base typography & RTL defaults */
+body {
+  font-family: 'Vazirmatn', system-ui, -apple-system, sans-serif;
+  background-color: #f2f3f5;
+  color: #333333;
+}
+
+/* Custom sleek scrollbar */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #d1d5db;
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #9ca3af;
+}
 
 /* Smooth scroll */
-html { scroll-behavior: smooth; }
+html {
+  scroll-behavior: smooth;
+}
 
-/* RTL utilities */
-.direction-ltr { direction: ltr; }
+/* RTL & number utilities */
+.direction-ltr {
+  direction: ltr;
+}
 
-/* Price display (always LTR numbers) */
-.price-display { direction: ltr; unicode-bidi: isolate; }
+.price-display {
+  direction: ltr;
+  unicode-bidi: isolate;
+  font-feature-settings: "tnum";
+}
 
 /* Map container */
-.leaflet-container { width: 100%; height: 100%; border-radius: 12px; z-index: 1; }
+.leaflet-container {
+  width: 100%;
+  height: 100%;
+  border-radius: 12px;
+  z-index: 1;
+  font-family: 'Vazirmatn', sans-serif !important;
+}
 
 /* Animations */
 @keyframes slideUp {
-  from { transform: translateY(20px); opacity: 0; }
-  to { transform: translateY(0); opacity: 1; }
+  from {
+    transform: translateY(14px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
 }
 
 @keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 @keyframes pulse-ring {
-  0% { transform: scale(0.8); opacity: 1; }
-  100% { transform: scale(1.4); opacity: 0; }
+  0% {
+    transform: scale(0.85);
+    opacity: 0.9;
+  }
+  100% {
+    transform: scale(1.45);
+    opacity: 0;
+  }
 }
 
-.animate-slide-up { animation: slideUp 0.3s ease-out; }
-.animate-fade-in { animation: fadeIn 0.3s ease-out; }
+.animate-slide-up {
+  animation: slideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.animate-fade-in {
+  animation: fadeIn 0.25s ease-out;
+}
 
-/* Message bubble animations */
 .message-enter {
-  animation: slideUp 0.3s ease-out;
+  animation: slideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-/* Chip/badge styles */
+/* Torob Filter & Category Chips */
 .chip {
-  @apply inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium transition-all;
+  @apply inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all;
 }
 
 .chip-active {
-  @apply bg-torob-red text-white;
+  @apply bg-[#fff0f2] text-[#d73948] border border-[#d73948] font-bold;
 }
 
 .chip-inactive {
-  @apply bg-gray-100 text-gray-600 hover:bg-gray-200;
+  @apply bg-white text-[#555555] border border-[#e6e6e6] hover:border-[#cccccc] hover:bg-[#f8f9fa];
 }
 
-/* Card styles */
+/* Torob Seller & Product Cards */
 .shop-card {
-  @apply bg-white rounded-xl border border-gray-100 p-4 transition-all hover:shadow-md hover:border-torob-red/30 cursor-pointer;
+  @apply bg-white rounded-xl border border-[#e6e6e6] p-4 transition-all hover:shadow-md hover:border-[#d73948]/40 cursor-pointer;
 }
 
 .product-card {
-  @apply bg-white rounded-xl border border-gray-100 overflow-hidden transition-all hover:shadow-lg hover:border-torob-red/30 cursor-pointer;
+  @apply bg-white rounded-xl border border-[#e6e6e6] overflow-hidden transition-all hover:shadow-md hover:border-[#d73948]/40 cursor-pointer;
 }
 
 /* Status indicators */
-.status-open { @apply text-torob-green; }
-.status-closed { @apply text-red-500; }
-.status-unknown { @apply text-gray-400; }
-
-/* Price freshness */
-.price-fresh { @apply text-torob-green; }
-.price-stale { @apply text-torob-yellow; }
-.price-old { @apply text-red-500; }
+.status-open {
+  @apply text-[#16a34a];
+}
+.status-closed {
+  @apply text-[#d73948];
+}
+.status-unknown {
+  @apply text-gray-400;
+}
 
 /* Skeleton loading */
 .skeleton {
-  @apply bg-gray-200 rounded animate-pulse;
+  @apply bg-[#e5e7eb] rounded-md animate-pulse;
 }
 
-/* ── Markdown rendering (chat bubbles) ────────────────────────
-   Implemented locally because @tailwindcss/typography is not installed
-   in this project (Tailwind v4 + no plugin dependency).
-   ---------------------------------------------------------------- */
+/* ── Markdown rendering inside Torob Assistant Chat ─────────────── */
 .markdown-body {
-  @apply text-xs leading-relaxed;
+  @apply text-xs leading-6;
 }
-.markdown-body > *:first-child { margin-top: 0; }
-.markdown-body > *:last-child { margin-bottom: 0; }
-
+.markdown-body > *:first-child {
+  margin-top: 0;
+}
+.markdown-body > *:last-child {
+  margin-bottom: 0;
+}
 .markdown-body p {
   @apply my-1.5;
 }
 .markdown-body strong {
-  @apply font-bold;
+  @apply font-extrabold;
 }
 .markdown-body em {
   @apply italic;
 }
 .markdown-body a {
-  @apply text-torob-red underline underline-offset-2;
+  @apply text-[#d73948] underline underline-offset-2 font-semibold;
 }
 .markdown-body ul {
-  @apply my-1.5 pr-4 list-disc;
+  @apply my-1.5 pr-4 list-disc space-y-0.5;
 }
 .markdown-body ol {
-  @apply my-1.5 pr-4 list-decimal;
+  @apply my-1.5 pr-4 list-decimal space-y-0.5;
 }
 .markdown-body li {
   @apply my-0.5;
 }
 .markdown-body li::marker {
-  @apply text-gray-400;
+  @apply text-[#d73948];
+}
+.markdown-body-user li::marker {
+  @apply text-white/80;
 }
 .markdown-body h1,
 .markdown-body h2,
 .markdown-body h3,
 .markdown-body h4 {
-  @apply font-bold text-gray-900 my-2;
+  @apply font-extrabold text-[#222222] my-1.5;
 }
-.markdown-body h1 { @apply text-sm; }
-.markdown-body h2 { @apply text-xs; }
-.markdown-body h3,
-.markdown-body h4 { @apply text-xs; }
+.markdown-body-user h1,
+.markdown-body-user h2,
+.markdown-body-user h3,
+.markdown-body-user h4 {
+  @apply text-white;
+}
 .markdown-body blockquote {
-  @apply my-1.5 pr-3 border-r-2 border-gray-300 text-gray-600;
+  @apply my-1.5 pr-3 border-r-2 border-[#d73948] text-[#555555] bg-[#f8f9fa] py-1 rounded-l;
 }
 .markdown-body code {
-  @apply bg-gray-100 text-gray-800 px-1 py-0.5 rounded text-[11px] font-mono;
+  @apply bg-[#f2f3f5] text-[#d73948] px-1.5 py-0.5 rounded text-[11px] font-mono;
 }
 .markdown-body pre {
-  @apply bg-gray-900 text-gray-100 p-2.5 rounded-lg my-2 overflow-x-auto text-[11px];
+  @apply bg-[#222222] text-gray-100 p-2.5 rounded-lg my-2 overflow-x-auto text-[11px];
 }
 .markdown-body pre code {
   @apply bg-transparent text-inherit p-0;
 }
 .markdown-body hr {
-  @apply my-2 border-gray-200;
+  @apply my-2 border-[#e6e6e6];
 }
 .markdown-body table {
-  @apply w-full my-2 text-[11px];
+  @apply w-full my-2 text-[11px] border-collapse;
 }
 .markdown-body th,
 .markdown-body td {
-  @apply border border-gray-200 px-1.5 py-1 text-right;
+  @apply border border-[#e6e6e6] px-2 py-1 text-right;
 }
 .markdown-body th {
-  @apply bg-gray-50 font-bold;
+  @apply bg-[#f8f9fa] font-bold;
 }
-

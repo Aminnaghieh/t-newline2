@@ -45,4 +45,4 @@ starcoach-dataset-v16-cap300-csv/
 *.swp
 *.swo
 
-.venv/
+.venv/*.zip

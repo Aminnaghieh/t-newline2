@@ -1,5 +1,5 @@
 import React from 'react';
-import { Tag, Store, ArrowLeft, CheckCircle2 } from 'lucide-react';
+import { Store, ArrowLeft, CheckCircle2, Heart, Bell } from 'lucide-react';
 
 export default function ProductCard({ product, onSelect, isSelected }) {
   const formatPrice = (val) => {
@@ -9,12 +9,11 @@ export default function ProductCard({ product, onSelect, isSelected }) {
 
   const formatDistance = (m) => {
     if (m == null || m < 0) return '';
-    if (m >= 1000) return `${(m / 1000).toLocaleString('fa-IR', { maximumFractionDigits: 1 })} کیلومتر`;
+    if (m >= 1000)
+      return `${(m / 1000).toLocaleString('fa-IR', { maximumFractionDigits: 1 })} کیلومتر`;
     return `${Math.round(m).toLocaleString('fa-IR')} متر`;
   };
 
-  // Nearby fields are only present on location-aware results (located search
-  // or chat with a session position); classic results render exactly as before.
   const isLocated = product.nearby_shops_count != null || product.in_radius === false;
   const inRadius = product.in_radius !== false;
   const nearbyCount = product.nearby_shops_count ?? product.offer_count ?? 0;
@@ -24,31 +23,31 @@ export default function ProductCard({ product, onSelect, isSelected }) {
     <div
       onClick={() => onSelect(product)}
       data-testid="product-card"
-      className={`group relative bg-white rounded-lg border p-3.5 transition-all duration-200 cursor-pointer hover:shadow-card flex flex-col justify-between ${
+      className={`group relative bg-white rounded-xl border p-3.5 transition-all duration-200 cursor-pointer flex flex-col justify-between ${
         isSelected
-          ? 'border-torob-red ring-2 ring-torob-red-400/20 bg-torob-red-light/30'
-          : 'border-torob-line hover:border-torob-red-400/40'
+          ? 'border-[#d73948] ring-2 ring-[#d73948]/15 bg-[#fff0f2]/20 shadow-[0_4px_14px_rgba(215,57,72,0.12)]'
+          : 'border-[#e6e6e6] hover:border-[#d73948]/40 hover:shadow-[0_6px_18px_rgba(0,0,0,0.07)]'
       }`}
     >
       {isSelected && (
-        <div className="absolute top-2 left-2 z-10 bg-torob-red text-white p-1 rounded-full shadow-xs">
-          <CheckCircle2 className="w-4 h-4" />
+        <div className="absolute top-2.5 left-2.5 z-10 bg-[#d73948] text-white p-1 rounded-full shadow-2xs">
+          <CheckCircle2 className="w-3.5 h-3.5" />
         </div>
       )}
 
-      {/* Out-of-radius badge: this model has no in-person shop near the user */}
+      {/* Out-of-radius badge */}
       {isLocated && !inRadius && (
         <span
           data-testid="out-of-radius-badge"
-          className="absolute top-2 right-2 z-10 bg-amber-100 text-amber-800 border border-amber-300 text-[9px] font-bold px-1.5 py-0.5 rounded-full"
+          className="absolute top-2.5 right-2.5 z-10 bg-[#fff8e6] text-[#b45309] border border-[#fde68a] text-[10px] font-bold px-2 py-0.5 rounded-md"
         >
           خارج از محدوده شما{nearestDistance ? ` · ${nearestDistance}` : ''}
         </span>
       )}
 
-      {/* Image & Main Info */}
-      <div className="flex gap-3">
-        <div className="w-20 h-20 shrink-0 bg-torob-surface rounded-lg overflow-hidden border border-torob-line flex items-center justify-center p-1">
+      {/* Product Top Section: Image & Title */}
+      <div className="flex gap-3.5 items-start">
+        <div className="w-24 h-24 shrink-0 bg-white rounded-lg overflow-hidden border border-[#f0f0f0] flex items-center justify-center p-1.5 relative">
           {product.image_url ? (
             <img
               src={product.image_url}
@@ -59,81 +58,89 @@ export default function ProductCard({ product, onSelect, isSelected }) {
               }}
             />
           ) : (
-            <div className="text-gray-300 text-xs font-bold">بدون تصویر</div>
+            <div className="text-[#cccccc] text-[11px] font-bold text-center">تصویر کالا</div>
           )}
         </div>
 
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-1.5 mb-1">
+        <div className="flex-1 min-w-0 pt-0.5">
+          <div className="flex items-center gap-1.5 mb-1 flex-wrap">
             {product.brand_name && (
-              <span className="bg-torob-surface-2 text-torob-ink-2 text-[10px] font-semibold px-2 py-0.5 rounded">
+              <span className="bg-[#f2f3f5] text-[#555555] text-[10px] font-bold px-2 py-0.5 rounded">
                 {product.brand_name}
               </span>
             )}
             {product.category_name && (
-              <span className="text-torob-muted text-[11px] truncate">{product.category_name}</span>
+              <span className="text-[#888888] text-[10px] truncate">{product.category_name}</span>
             )}
           </div>
 
-          <h3 className="font-bold text-torob-dark text-xs leading-snug line-clamp-2 group-hover:text-torob-red transition-colors">
+          <h3 className="font-bold text-[#222222] text-[13px] leading-5 line-clamp-2 group-hover:text-[#d73948] transition-colors">
             {product.persian_title}
           </h3>
 
           {product.specs_summary && (
-            <p className="text-[11px] text-torob-muted mt-1 line-clamp-1">
+            <p className="text-[11px] text-[#888888] mt-1 line-clamp-1">
               {product.specs_summary}
             </p>
           )}
         </div>
       </div>
 
-      {/* Price & Action footer */}
-      <div className="mt-3 pt-2.5 border-t border-gray-100 flex items-center justify-between text-xs">
+      {/* Torob Price & Store Count Footer */}
+      <div className="mt-3.5 pt-2.5 border-t border-[#f0f0f0] flex items-end justify-between gap-2 text-xs">
         <div>
           {isLocated && !inRadius && product.nearest_shop_price > 0 ? (
             <>
-              <span className="text-[10px] text-gray-400 block">
-                قیمت در نزدیک‌ترین فروشگاه{nearestDistance ? ` (${nearestDistance})` : ''} –
-                ثبت‌شده، تأییدنشده
+              <span className="text-[10px] text-[#888888] block mb-0.5">
+                قیمت در نزدیک‌ترین فروشگاه{nearestDistance ? ` (${nearestDistance})` : ''}
               </span>
-              <span className="font-bold text-gray-900 text-xs text-torob-red price-display">
-                {formatPrice(product.nearest_shop_price)}
-              </span>
-              <span className="text-[10px] text-gray-400">تومان</span>
+              <div className="flex items-baseline gap-1">
+                <span className="text-[11px] text-[#555555] font-semibold">از</span>
+                <span className="font-black text-sm text-[#d73948] price-display">
+                  {formatPrice(product.nearest_shop_price)}
+                </span>
+                <span className="text-[11px] text-[#555555] font-medium">تومان</span>
+              </div>
             </>
           ) : isLocated && product.min_price_nearby > 0 ? (
             <>
-              <span className="text-[10px] text-gray-400 block">
-                ارزان‌ترین قیمت نزدیک شما (ثبت‌شده – تأییدنشده)
+              <span className="text-[10px] text-[#248212] font-semibold block mb-0.5">
+                ارزان‌ترین قیمت حضوری اطراف شما
               </span>
-              <span className="font-bold text-gray-900 text-xs text-torob-red price-display">
-                {formatPrice(product.min_price_nearby)}
-              </span>
-              <span className="text-[10px] text-gray-400">تومان</span>
+              <div className="flex items-baseline gap-1">
+                <span className="text-[11px] text-[#555555] font-semibold">از</span>
+                <span className="font-black text-sm text-[#d73948] price-display">
+                  {formatPrice(product.min_price_nearby)}
+                </span>
+                <span className="text-[11px] text-[#555555] font-medium">تومان</span>
+              </div>
             </>
           ) : (
             <>
-              <span className="text-[10px] text-gray-400 block">شروع قیمت از</span>
-              <span className="font-bold text-gray-900 text-xs text-torob-red price-display">
-                {formatPrice(product.min_price)}
-              </span>
-              <span className="text-[10px] text-gray-400">تومان</span>
+              <span className="text-[10px] text-[#888888] block mb-0.5">کمترین قیمت در ترب</span>
+              <div className="flex items-baseline gap-1">
+                <span className="text-[11px] text-[#555555] font-semibold">از</span>
+                <span className="font-black text-sm text-[#d73948] price-display">
+                  {formatPrice(product.min_price)}
+                </span>
+                <span className="text-[11px] text-[#555555] font-medium">تومان</span>
+              </div>
             </>
           )}
         </div>
 
-        <div className="flex items-center gap-1.5">
-          <span className="text-[11px] text-torob-muted flex items-center gap-1">
-            <Store className="w-3.5 h-3.5 text-gray-400" />
+        <div className="flex flex-col items-end gap-1.5">
+          <span className="text-[11px] text-[#888888] font-medium flex items-center gap-1">
+            <Store className="w-3 h-3 text-[#888888]" />
             {isLocated
               ? nearbyCount > 0
-                ? `${nearbyCount.toLocaleString('fa-IR')} فروشگاه نزدیک`
+                ? `در ${nearbyCount.toLocaleString('fa-IR')} فروشگاه نزدیک`
                 : nearestDistance
-                  ? `نزدیک‌ترین: ${nearestDistance}`
-                  : 'بدون فروشگاه نزدیک'
+                ? `نزدیک‌ترین: ${nearestDistance}`
+                : 'بدون فروشگاه نزدیک'
               : product.offer_count
-                ? `${product.offer_count} فروشگاه`
-                : 'موجود'}
+              ? `در ${product.offer_count.toLocaleString('fa-IR')} فروشگاه`
+              : 'موجود در ترب'}
           </span>
 
           <button
@@ -142,7 +149,7 @@ export default function ProductCard({ product, onSelect, isSelected }) {
               onSelect(product);
             }}
             data-testid="find-shops-btn"
-            className="flex items-center gap-1 bg-torob-red hover:bg-torob-red-dark text-white text-[11px] font-bold px-2.5 py-1.5 rounded-lg transition-colors cursor-pointer"
+            className="flex items-center gap-1 bg-[#d73948] hover:bg-[#ae1f27] text-white text-[11px] font-bold px-3 py-1.5 rounded-lg transition-colors cursor-pointer shadow-2xs"
           >
             <span>یافتن فروشگاه</span>
             <ArrowLeft className="w-3 h-3" />

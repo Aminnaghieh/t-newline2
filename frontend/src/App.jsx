@@ -6,17 +6,7 @@ import ShopCard from './components/ShopCard';
 import MapView from './components/MapView';
 import ChatPanel from './components/ChatPanel';
 import VerificationModal from './components/VerificationModal';
-import {
-  Store,
-  Package,
-  Map as MapIcon,
-  MessageSquare,
-  Sparkles,
-  AlertCircle,
-  TrendingDown,
-  Layers,
-  ArrowRight,
-} from 'lucide-react';
+import { Store, Package, Map as MapIcon, Search } from 'lucide-react';
 
 export default function App() {
   // Session & Step State
@@ -31,12 +21,16 @@ export default function App() {
   });
   const [isDetectingLocation, setIsDetectingLocation] = useState(false);
 
-  // Chat State
+  // Direct Catalog Search Input (Torob Search Bar)
+  const [searchQuery, setSearchQuery] = useState('');
+
+  // Chat State (supports inline Generative UI `cards` per message)
   const [messages, setMessages] = useState([
     {
       role: 'assistant',
       content:
-        'سلام! 👋 من **تُرب‌گرد** هستم، دستیار هوشمند ایجنتیک شما برای **خرید حضوری در پاساژها و فروشگاه‌های تهران**.\n\nچه محصولی مدنظرتونه؟ می‌توانید بنویسید (مثلاً «کتونی پیاده‌روی تا ۳ میلیون با اسنپ‌پی») یا از دسته‌های پیشنهادی زیر انتخاب کنید.',
+        'سلام! 👋 من **تُرب‌گرد** هستم، دستیار هوشمند **ترب** برای **خرید حضوری از پاساژها و فروشگاه‌های اطراف شما**.\n\nچه کالایی مدنظرتونه؟ می‌توانید نام کالا یا شرایط خریدتان را بنویسید (مثلاً «کتونی پیاده‌روی تا ۳ میلیون با اسنپ‌پی نزدیک چارسو») یا از ویجت‌های تعاملی زیر استفاده کنید.',
+      cards: [],
     },
   ]);
   const [suggestions, setSuggestions] = useState([
@@ -50,7 +44,6 @@ export default function App() {
 
   // Results State
   const [products, setProducts] = useState([]);
-  // Meta for the location-aware product catalog (radius used / fallback).
   const [productsMeta, setProductsMeta] = useState({
     located: false,
     fallback: false,
@@ -62,13 +55,8 @@ export default function App() {
   const [shops, setShops] = useState([]);
   const [selectedShop, setSelectedShop] = useState(null);
 
-  // Tracks the query the current product list came from (chat or catalog
-  // fetch) so a location change can refetch the same thing.
   const lastQueryRef = useRef('کفش کتونی');
-  // Mirror of filters for use inside debounced timers (no stale closures).
-  // Populated by the effect below, after `filters` is declared.
   const filtersRef = useRef(null);
-  // Debounce timer for location-triggered product refetches.
   const productsTimerRef = useRef(null);
 
   // Filters State
@@ -80,8 +68,6 @@ export default function App() {
     radiusKm: 5.0,
   });
 
-  // Mirror filters into a ref (declared above) so debounced location
-  // refetches always read the latest values without stale closures.
   useEffect(() => {
     filtersRef.current = filters;
   }, [filters]);
@@ -91,15 +77,10 @@ export default function App() {
   const [isVerificationOpen, setIsVerificationOpen] = useState(false);
   const [verifiedStatusMap, setVerifiedStatusMap] = useState({});
 
-  // Active view tab (especially for mobile/responsive)
-  // Default to 'products' because on first load we only have products –
-  // showing an empty shop list is confusing.
-  const [activeTab, setActiveTab] = useState('products'); // 'shops' | 'products' | 'map' | 'chat'
+  // Active view tab
+  const [activeTab, setActiveTab] = useState('products');
 
-  // Initialize session and default product search
   useEffect(() => {
-    // Initial fetch of popular products (e.g. sneakers) to populate UI immediately!
-    // Uses the default location so the catalog is nearby-aware from the start.
     fetchProducts('کفش کتونی', userLocation.lat, userLocation.lon);
   }, []);
 
@@ -122,7 +103,6 @@ export default function App() {
       if (data.products && data.products.length > 0) {
         setProducts(data.products);
       } else if (located) {
-        // Honest empty state for locations the dataset does not cover.
         setProducts([]);
       }
       setProductsMeta({
@@ -137,8 +117,6 @@ export default function App() {
     }
   };
 
-  // Debounced (~400ms) product refetch on location change – fires even when
-  // no product is selected, because discovery itself is location-aware now.
   const scheduleProductsRefresh = (lat, lon) => {
     if (productsTimerRef.current) clearTimeout(productsTimerRef.current);
     productsTimerRef.current = setTimeout(() => {
@@ -162,11 +140,8 @@ export default function App() {
           name: 'موقعیت فعلی شما (GPS)',
         });
         setIsDetectingLocation(false);
-        // A new position resets the auto-expanded radius (server-side too)
-        // and refetches the location-aware catalog.
         setFilters((prev) => ({ ...prev, radiusKm: 5.0 }));
         scheduleProductsRefresh(latitude, longitude);
-        // Refresh shops if product is selected
         if (selectedProduct) {
           fetchShopsForProduct(selectedProduct.product_id, latitude, longitude);
         }
@@ -182,9 +157,6 @@ export default function App() {
 
   const handleLocationSelect = (lat, lon, name) => {
     setUserLocation({ lat, lon, name });
-    // A new position resets the auto-expanded shop radius (the agent resets
-    // its session radius too) and refreshes the location-aware catalog
-    // (debounced ~400ms), even with no product selected.
     setFilters((prev) => ({ ...prev, radiusKm: 5.0 }));
     scheduleProductsRefresh(lat, lon);
     if (selectedProduct) {
@@ -192,7 +164,7 @@ export default function App() {
     }
   };
 
-  // Send message to agent backend
+  // Send message to agent backend (attaches `data.cards` to assistant message for Generative UI)
   const handleSendMessage = async (text, context = null) => {
     setIsLoading(true);
     const newMessages = [...messages, { role: 'user', content: text }];
@@ -215,18 +187,21 @@ export default function App() {
       if (data.session_id) setSessionId(data.session_id);
       if (data.step) setCurrentStep(data.step);
 
-      setMessages((prev) => [...prev, { role: 'assistant', content: data.message }]);
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: 'assistant',
+          content: data.message,
+          cards: data.cards || [],
+        },
+      ]);
       if (data.suggestions) setSuggestions(data.suggestions);
 
-      // Process cards returned by agent
       if (data.cards) {
         data.cards.forEach((card) => {
           if (card.type === 'product_list' && card.data?.products) {
             setProducts(card.data.products);
             setActiveTab('products');
-            // Remember the query behind this list so a later location change
-            // refetches the same discovery, and derive banner state from the
-            // nearby fields the agent attached.
             lastQueryRef.current = card.data.query || lastQueryRef.current;
             setProductsMeta({
               located: true,
@@ -250,6 +225,7 @@ export default function App() {
         {
           role: 'assistant',
           content: 'متأسفانه در برقراری ارتباط خطایی رخ داد. لطفاً دوباره تلاش کنید.',
+          cards: [],
         },
       ]);
     } finally {
@@ -291,10 +267,6 @@ export default function App() {
           setShops(shopCard.data.shops);
           setActiveTab('shops');
 
-          // The server may have widened the radius (5 → 10 → 20 km) because
-          // nothing was found nearby. Adopt the radius it actually applied,
-          // otherwise the client-side filter would drop the very results
-          // the agent just surfaced.
           const appliedRadius = data.filters?.radius_km;
           if (typeof appliedRadius === 'number' && appliedRadius > 0) {
             setFilters((prev) => ({ ...prev, radiusKm: appliedRadius }));
@@ -302,7 +274,10 @@ export default function App() {
         }
       }
       if (data.message) {
-        setMessages((prev) => [...prev, { role: 'assistant', content: data.message }]);
+        setMessages((prev) => [
+          ...prev,
+          { role: 'assistant', content: data.message, cards: data.cards || [] },
+        ]);
       }
     } catch (err) {
       console.error('Failed to fetch shops', err);
@@ -311,6 +286,7 @@ export default function App() {
         {
           role: 'assistant',
           content: '❌ دریافت فروشگاه‌ها با خطا مواجه شد. لطفاً دوباره تلاش کنید.',
+          cards: [],
         },
       ]);
     } finally {
@@ -325,27 +301,28 @@ export default function App() {
     setCurrentStep('verification');
   };
 
-  // Called by the verification modal once the agent has a result, so the
-  // shop card can display the "verified" badge.
   const handleVerificationResult = (shopId, status, updatedPrice) => {
     if (!shopId) return;
     setVerifiedStatusMap((prev) => ({
       ...prev,
       [shopId]: status,
     }));
-    // Reflect a price change directly on the card
     if (status === 'price_changed' && updatedPrice) {
       setShops((prev) =>
         prev.map((s) =>
           s.shop_id === shopId
-            ? { ...s, price_toman: updatedPrice, price_display: `${updatedPrice.toLocaleString('fa-IR')} تومان` }
+            ? {
+                ...s,
+                price_toman: updatedPrice,
+                price_display: `${updatedPrice.toLocaleString('fa-IR')} تومان`,
+              }
             : s
         )
       );
     }
   };
 
-  // Find Alternative Shops (fallback logic)
+  // Find Alternative Shops
   const handleFindAlternatives = async (shop) => {
     if (!selectedProduct) return;
     setIsLoading(true);
@@ -374,7 +351,10 @@ export default function App() {
         }
       }
       if (data.message) {
-        setMessages((prev) => [...prev, { role: 'assistant', content: data.message }]);
+        setMessages((prev) => [
+          ...prev,
+          { role: 'assistant', content: data.message, cards: data.cards || [] },
+        ]);
       }
     } catch (err) {
       console.error('Failed to find alternatives', err);
@@ -383,10 +363,20 @@ export default function App() {
     }
   };
 
+  const handleDirectSearch = (e) => {
+    e.preventDefault();
+    if (!searchQuery.trim()) return;
+    fetchProducts(searchQuery.trim(), userLocation.lat, userLocation.lon);
+    setActiveTab('products');
+  };
+
   // Filtered Shops
   const filteredShops = shops.filter((s) => {
     if (filters.onlyOpen && !s.is_open) return false;
-    if (filters.bnplProvider && (!s.bnpl_providers || !s.bnpl_providers.includes(filters.bnplProvider)))
+    if (
+      filters.bnplProvider &&
+      (!s.bnpl_providers || !s.bnpl_providers.includes(filters.bnplProvider))
+    )
       return false;
     if (filters.onlyMalls && !s.mall_info?.mall_name) return false;
     if (filters.radiusKm && s.distance_m && s.distance_m > filters.radiusKm * 1000) return false;
@@ -395,8 +385,8 @@ export default function App() {
   });
 
   return (
-    <div className="min-h-screen bg-[#F8F9FA] text-gray-800 flex flex-col font-sans">
-      {/* App Header */}
+    <div className="min-h-screen bg-[#f2f3f5] text-[#333333] flex flex-col font-sans">
+      {/* Torob Official Header */}
       <Header
         currentStep={currentStep}
         userLocation={userLocation}
@@ -407,19 +397,29 @@ export default function App() {
 
       {/* Main Content Layout */}
       <main className="flex-1 max-w-7xl w-full mx-auto p-3 sm:p-4 grid grid-cols-1 lg:grid-cols-12 gap-4">
-        {/* Left Column (Desktop 5 cols, Mobile full): Chat Assistant Panel */}
-        <section className="lg:col-span-5 h-[520px] lg:h-[calc(100vh-140px)] flex flex-col">
+        {/* Right Column in RTL (Desktop 5 cols): Torob Smart Assistant with Generative UI */}
+        <section className="lg:col-span-5 h-[540px] lg:h-[calc(100vh-135px)] flex flex-col">
           <ChatPanel
             messages={messages}
             onSendMessage={handleSendMessage}
             isLoading={isLoading}
             suggestions={suggestions}
             onSuggestionClick={(s) => handleSendMessage(s)}
+            products={products}
+            shops={filteredShops}
+            onSelectProduct={handleSelectProduct}
+            onVerifyShop={handleVerifyShop}
+            onSelectShop={(s) => {
+              setSelectedShop(s);
+              setActiveTab('map');
+            }}
             onReset={() => {
               setMessages([
                 {
                   role: 'assistant',
-                  content: 'گفتگو ریست شد. چه محصولی را می‌خواهید برای خرید حضوری بررسی کنیم؟',
+                  content:
+                    'گفتگو ریست شد. چه کالایی را می‌خواهید در فروشگاه‌های حضوری ترب بررسی کنیم؟',
+                  cards: [],
                 },
               ]);
               setCurrentStep('discovery');
@@ -429,13 +429,36 @@ export default function App() {
           />
         </section>
 
-        {/* Right Column (Desktop 7 cols, Mobile full): Interactive Dashboard */}
-        <section className="lg:col-span-7 flex flex-col space-y-3 h-auto lg:h-[calc(100vh-140px)] overflow-y-auto pr-0.5">
-          {/* Active Product Banner if selected */}
+        {/* Left Column in RTL (Desktop 7 cols): Torob Catalog, Sellers & Map */}
+        <section className="lg:col-span-7 flex flex-col space-y-3 h-auto lg:h-[calc(100vh-135px)] overflow-y-auto pr-0.5">
+          {/* Torob Classic Search Bar for Fast Catalog Lookup */}
+          <form
+            onSubmit={handleDirectSearch}
+            className="bg-white rounded-xl border border-[#e6e6e6] p-2 shadow-[0_2px_8px_rgba(0,0,0,0.04)] flex items-center gap-2"
+          >
+            <div className="flex-1 relative flex items-center">
+              <Search className="w-4 h-4 text-[#d73948] absolute right-3 pointer-events-none" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="جستجوی مستقیم نام کالا در ترب (مثلاً: آیفون ۱۶، کتونی نایک، گلکسی A55)..."
+                className="w-full text-xs bg-[#f8f9fa] border border-[#e6e6e6] rounded-lg pr-9 pl-3 py-2 text-[#333333] placeholder-[#888888] outline-none focus:border-[#d73948] focus:bg-white transition-all font-medium"
+              />
+            </div>
+            <button
+              type="submit"
+              className="bg-[#d73948] hover:bg-[#ae1f27] text-white text-xs font-bold px-4 py-2 rounded-lg transition-colors cursor-pointer shrink-0"
+            >
+              جستجو در ترب
+            </button>
+          </form>
+
+          {/* Active Product Banner */}
           {selectedProduct && (
-            <div className="bg-white rounded-xl border border-red-200 p-3 shadow-xs flex items-center justify-between gap-3 animate-fade-in">
+            <div className="bg-white rounded-xl border-2 border-[#d73948]/30 p-3.5 shadow-[0_2px_10px_rgba(215,57,72,0.08)] flex items-center justify-between gap-3 animate-fade-in">
               <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-lg bg-gray-50 border border-gray-100 p-1 flex items-center justify-center shrink-0">
+                <div className="w-14 h-14 rounded-lg bg-white border border-[#e6e6e6] p-1 flex items-center justify-center shrink-0">
                   {selectedProduct.image_url ? (
                     <img
                       src={selectedProduct.image_url}
@@ -443,12 +466,14 @@ export default function App() {
                       className="w-full h-full object-contain"
                     />
                   ) : (
-                    <Package className="w-6 h-6 text-gray-400" />
+                    <Package className="w-6 h-6 text-[#cccccc]" />
                   )}
                 </div>
                 <div>
-                  <span className="text-[10px] text-[#E8453C] font-bold block">کالای انتخابی:</span>
-                  <h4 className="font-bold text-xs text-gray-900 line-clamp-1">
+                  <span className="text-[10px] text-[#d73948] font-extrabold block mb-0.5">
+                    کالای انتخابی برای مقایسه فروشندگان حضوری:
+                  </span>
+                  <h4 className="font-extrabold text-xs sm:text-sm text-[#222222] line-clamp-1">
                     {selectedProduct.persian_title}
                   </h4>
                 </div>
@@ -459,22 +484,18 @@ export default function App() {
                   setSelectedProduct(null);
                   setActiveTab('products');
                 }}
-                className="text-xs text-gray-500 hover:text-gray-800 bg-gray-100 hover:bg-gray-200 px-2.5 py-1.5 rounded-lg transition-colors cursor-pointer shrink-0 font-medium"
+                className="text-xs text-[#d73948] hover:text-white bg-[#fff0f2] hover:bg-[#d73948] border border-[#f5c2c7] px-3 py-1.5 rounded-lg transition-colors cursor-pointer shrink-0 font-bold"
               >
                 تغییر کالا
               </button>
             </div>
           )}
 
-          {/* Interactive Filters Bar */}
+          {/* Torob Filters Bar */}
           <FiltersBar
             filters={filters}
             onFilterChange={setFilters}
             onApply={(next) => {
-              // Re-query the server so radius / BNPL filters affect the
-              // candidate set, not only the client-side rendering.
-              // `next` is passed explicitly because `filters` is still the
-              // previous state inside this render cycle.
               if (selectedProduct) {
                 fetchShopsForProduct(
                   selectedProduct.product_id,
@@ -487,67 +508,68 @@ export default function App() {
             totalResults={filteredShops.length}
           />
 
-          {/* Dashboard Tab Navigation */}
-          <div className="bg-white rounded-xl border border-gray-200 p-1 flex items-center gap-1 shadow-2xs">
+          {/* Torob Segmented Tab Bar */}
+          <div className="bg-white rounded-xl border border-[#e6e6e6] p-1.5 flex items-center gap-1.5 shadow-[0_2px_8px_rgba(0,0,0,0.04)]">
             <button
               onClick={() => setActiveTab('shops')}
-              className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+              className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-lg text-xs font-extrabold transition-all cursor-pointer ${
                 activeTab === 'shops'
-                  ? 'bg-[#E8453C] text-white shadow-xs'
-                  : 'text-gray-600 hover:bg-gray-50'
+                  ? 'bg-[#d73948] text-white shadow-2xs'
+                  : 'text-[#555555] hover:bg-[#f8f9fa] hover:text-[#222222]'
               }`}
             >
               <Store className="w-4 h-4" />
-              <span>فروشگاه‌های حضوری ({filteredShops.length})</span>
+              <span>فروشنده‌های حضوری ({filteredShops.length.toLocaleString('fa-IR')})</span>
             </button>
 
             <button
               onClick={() => setActiveTab('products')}
-              className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+              className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-lg text-xs font-extrabold transition-all cursor-pointer ${
                 activeTab === 'products'
-                  ? 'bg-[#E8453C] text-white shadow-xs'
-                  : 'text-gray-600 hover:bg-gray-50'
+                  ? 'bg-[#d73948] text-white shadow-2xs'
+                  : 'text-[#555555] hover:bg-[#f8f9fa] hover:text-[#222222]'
               }`}
             >
               <Package className="w-4 h-4" />
-              <span>کشف و مقایسه مدل‌ها ({products.length})</span>
+              <span>کشف و مقایسه کالاها ({products.length.toLocaleString('fa-IR')})</span>
             </button>
 
             <button
               onClick={() => setActiveTab('map')}
-              className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+              className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-lg text-xs font-extrabold transition-all cursor-pointer ${
                 activeTab === 'map'
-                  ? 'bg-[#E8453C] text-white shadow-xs'
-                  : 'text-gray-600 hover:bg-gray-50'
+                  ? 'bg-[#d73948] text-white shadow-2xs'
+                  : 'text-[#555555] hover:bg-[#f8f9fa] hover:text-[#222222]'
               }`}
             >
               <MapIcon className="w-4 h-4" />
-              <span>نقشه و موقعیت</span>
+              <span>نقشه اطراف من</span>
             </button>
           </div>
 
           {/* Content Area Based on Active Tab */}
           <div className="flex-1 min-h-[350px]">
-            {/* Loading skeletons */}
             {isLoading && (
               <div className="space-y-3" aria-busy="true" aria-label="در حال بارگذاری">
                 {[0, 1, 2].map((i) => (
-                  <div key={i} className="bg-white rounded-xl border border-gray-200 p-4 space-y-3">
+                  <div
+                    key={i}
+                    className="bg-white rounded-xl border border-[#e6e6e6] p-4 space-y-3"
+                  >
                     <div className="flex items-center gap-3">
-                      <div className="skeleton h-4 w-40" />
-                      <div className="skeleton h-4 w-16 rounded-full" />
+                      <div className="skeleton h-4 w-44" />
+                      <div className="skeleton h-4 w-20 rounded-full" />
                     </div>
                     <div className="skeleton h-3 w-full" />
                     <div className="flex items-center justify-between">
-                      <div className="skeleton h-4 w-28" />
-                      <div className="skeleton h-4 w-20" />
+                      <div className="skeleton h-5 w-32" />
+                      <div className="skeleton h-8 w-28 rounded-lg" />
                     </div>
                   </div>
                 ))}
               </div>
             )}
 
-            {/* Tab 1: Shops List */}
             {!isLoading && activeTab === 'shops' && (
               <div className="space-y-3">
                 {filteredShops.length > 0 ? (
@@ -564,54 +586,63 @@ export default function App() {
                     />
                   ))
                 ) : (
-                  <div className="bg-white rounded-xl border border-gray-200 p-8 text-center space-y-3">
-                    <Store className="w-10 h-10 text-gray-300 mx-auto" />
-                    <h4 className="font-bold text-sm text-gray-700">
-                      فروشگاهی با این فیلترها پیدا نشد
+                  <div className="bg-white rounded-xl border border-[#e6e6e6] p-8 text-center space-y-3">
+                    <div className="w-12 h-12 rounded-full bg-[#fff0f2] text-[#d73948] flex items-center justify-center mx-auto">
+                      <Store className="w-6 h-6" />
+                    </div>
+                    <h4 className="font-extrabold text-sm text-[#222222]">
+                      فروشگاهی با این فیلترها در اطراف شما پیدا نشد
                     </h4>
-                    <p className="text-xs text-gray-400 max-w-sm mx-auto">
-                      پیشنهاد می‌کنیم فیلترهای اقساطی یا شعاع فاصله را تغییر دهید، یا از تب «کشف
-                      مدل‌ها» کالای دیگری را انتخاب کنید.
+                    <p className="text-xs text-[#888888] max-w-sm mx-auto leading-relaxed">
+                      پیشنهاد می‌کنیم فیلترهای اقساطی یا شعاع فاصله را تغییر دهید، یا ابتدا از تب
+                      «کشف و مقایسه کالاها» محصول موردنظرتان را انتخاب کنید.
                     </p>
                     <button
                       onClick={() => setActiveTab('products')}
-                      className="bg-[#E8453C] text-white text-xs font-bold px-4 py-2 rounded-lg cursor-pointer"
+                      className="bg-[#d73948] hover:bg-[#ae1f27] text-white text-xs font-bold px-5 py-2.5 rounded-lg cursor-pointer transition-colors"
                     >
-                      مشاهده مدل‌های دیگر
+                      مشاهده لیست کالاهای ترب
                     </button>
                   </div>
                 )}
               </div>
             )}
 
-            {/* Tab 2: Products Catalog */}
             {!isLoading && activeTab === 'products' && (
               <div className="space-y-3">
                 {productsMeta.located && productsMeta.total === 0 && products.length > 0 ? (
                   <div
                     data-testid="products-total-fallback"
-                    className="text-[11px] text-amber-700 font-medium"
+                    className="text-[11px] text-[#b45309] font-bold bg-[#fff8e6] border border-[#fde68a] px-3 py-1.5 rounded-lg"
                   >
-                    در محدوده شما محصولی پیدا نشد؛ نزدیک‌ترین‌ها را نشان می‌دهیم
+                    در محدوده شما محصولی پیدا نشد؛ نزدیک‌ترین فروشندگان ترب را نشان می‌دهیم
                   </div>
                 ) : productsMeta.located && productsMeta.total != null && productsMeta.total > 0 ? (
-                  <div data-testid="products-total" className="text-[11px] text-gray-500">
-                    {productsMeta.totalCapped
-                      ? `${productsMeta.total.toLocaleString('fa-IR')}+`
-                      : productsMeta.total.toLocaleString('fa-IR')}{' '}
-                    مدل در محدوده شما پیدا شد
+                  <div
+                    data-testid="products-total"
+                    className="text-[11px] text-[#555555] font-bold flex items-center justify-between bg-white border border-[#e6e6e6] px-3 py-2 rounded-lg"
+                  >
+                    <span>
+                      {productsMeta.totalCapped
+                        ? `${productsMeta.total.toLocaleString('fa-IR')}+`
+                        : productsMeta.total.toLocaleString('fa-IR')}{' '}
+                      کالا در فروشگاه‌های حضوری محدوده شما پیدا شد
+                    </span>
+                    <span className="text-[#d73948]">مرتب‌سازی: نزدیک‌ترین به شما</span>
                   </div>
                 ) : null}
+
                 {productsMeta.fallback && products.length > 0 && (
                   <div
                     data-testid="products-fallback-banner"
-                    className="bg-amber-50 border border-amber-200 text-amber-800 rounded-xl p-3 text-[11px] leading-relaxed"
+                    className="bg-[#fff8e6] border border-[#fde68a] text-[#92400e] rounded-xl p-3 text-[11px] leading-relaxed font-medium"
                   >
                     ⚠️ برخی مدل‌ها در شعاع {productsMeta.radiusUsed ?? 5} کیلومتری شما فروشگاه
-                    حضوری ندارند؛ نزدیک‌ترین گزینه‌ها نمایش داده شده‌اند. قیمت‌ها «ثبت‌شده»
-                    هستند، نه تأییدشده.
+                    حضوری ندارند؛ نزدیک‌ترین گزینه‌ها نمایش داده شده‌اند. برای اطمینان از موجودی از
+                    دکمه «استعلام زنده» استفاده کنید.
                   </div>
                 )}
+
                 {products.length > 0 ? (
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     {products.map((p) => (
@@ -626,22 +657,20 @@ export default function App() {
                 ) : productsMeta.located ? (
                   <div
                     data-testid="products-empty"
-                    className="bg-white rounded-xl border border-gray-200 p-8 text-center space-y-3"
+                    className="bg-white rounded-xl border border-[#e6e6e6] p-8 text-center space-y-3"
                   >
-                    <Package className="w-10 h-10 text-gray-300 mx-auto" />
-                    <h4 className="font-bold text-sm text-gray-700">
-                      در این محدوده محصولی پیدا نشد
+                    <Package className="w-10 h-10 text-[#cccccc] mx-auto" />
+                    <h4 className="font-extrabold text-sm text-[#222222]">
+                      در این محدوده کالایی پیدا نشد
                     </h4>
-                    <p className="text-xs text-gray-400 max-w-sm mx-auto">
-                      دیتاست فقط بخشی از تهران را پوشش می‌دهد. شعاع جستجو را افزایش دهید یا
-                      محله دیگری انتخاب کنید.
+                    <p className="text-xs text-[#888888] max-w-sm mx-auto">
+                      شعاع جستجو را افزایش دهید یا از بالای صفحه محله دیگری در تهران انتخاب کنید.
                     </p>
                   </div>
                 ) : null}
               </div>
             )}
 
-            {/* Tab 3: Interactive Map */}
             {!isLoading && activeTab === 'map' && (
               <div className="h-[480px]">
                 <MapView

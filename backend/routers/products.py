@@ -2,7 +2,7 @@
 products.py – Product search and detail API endpoints.
 """
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Query, Path
 from backend.services.search import (
     search_products,
     search_products_located,
@@ -17,17 +17,17 @@ router = APIRouter(prefix="/api", tags=["products"])
 
 @router.get("/products/search")
 async def products_search(
-    q: str = Query("", description="Search query"),
-    category: str = Query("", description="Category filter"),
-    brand: str = Query("", description="Brand filter"),
-    min_price: int = Query(0, description="Minimum price"),
-    max_price: int = Query(0, description="Maximum price"),
-    page: int = Query(1, ge=1),
+    q: str = Query("", max_length=200, description="Search query"),
+    category: str = Query("", max_length=100, description="Category filter"),
+    brand: str = Query("", max_length=100, description="Brand filter"),
+    min_price: int = Query(0, ge=0, le=10_000_000_000, description="Minimum price"),
+    max_price: int = Query(0, ge=0, le=10_000_000_000, description="Maximum price"),
+    page: int = Query(1, ge=1, le=1000),
     limit: int = Query(20, ge=1, le=50),
-    lat: float = Query(None, description="User latitude (enables location-aware results)"),
-    lon: float = Query(None, description="User longitude (enables location-aware results)"),
-    radius_km: float = Query(5.0, ge=0.1, description="Nearby radius in km (capped at 25)"),
-    sort: str = Query("distance", description="Located sort: distance | price"),
+    lat: float = Query(None, ge=-90.0, le=90.0, description="User latitude (enables location-aware results)"),
+    lon: float = Query(None, ge=-180.0, le=180.0, description="User longitude (enables location-aware results)"),
+    radius_km: float = Query(5.0, ge=0.1, le=1000.0, description="Nearby radius in km (capped at 25)"),
+    sort: str = Query("distance", max_length=20, description="Located sort: distance | price"),
 ):
     """Search products with filters.
 
@@ -63,7 +63,9 @@ async def products_search(
 
 
 @router.get("/products/{product_id}")
-async def product_detail(product_id: str):
+async def product_detail(
+    product_id: str = Path(..., max_length=64, pattern=r"^[a-zA-Z0-9_\-]+$")
+):
     """Get product details."""
     result = get_product_detail(product_id)
     if not result:
@@ -79,7 +81,7 @@ async def categories(limit: int = Query(50, ge=1, le=200)):
 
 @router.get("/brands")
 async def brands(
-    category: str = Query("", description="Filter by category"),
+    category: str = Query("", max_length=100, description="Filter by category"),
     limit: int = Query(50, ge=1, le=200),
 ):
     """List brands, optionally filtered by category."""

@@ -2,7 +2,7 @@
 shops.py – Shop search, nearby, and detail API endpoints.
 """
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Query, Path
 from backend.database import query, query_one
 from backend.services.geo import haversine_m, bounding_box
 from backend.services.hours import check_shop_status
@@ -14,7 +14,9 @@ router = APIRouter(prefix="/api", tags=["shops"])
 
 
 @router.get("/shops/{shop_id}")
-async def shop_detail(shop_id: str):
+async def shop_detail(
+    shop_id: str = Path(..., max_length=64, pattern=r"^[a-zA-Z0-9_\-]+$")
+):
     """Get shop details."""
     shop = query_one("SELECT * FROM shops WHERE shop_id = ?", (shop_id,))
     if not shop:
@@ -44,7 +46,11 @@ async def shop_detail(shop_id: str):
 
 
 @router.get("/shops/{shop_id}/offers")
-async def shop_offers(shop_id: str, page: int = Query(1, ge=1), limit: int = Query(20, ge=1, le=100)):
+async def shop_offers(
+    shop_id: str = Path(..., max_length=64, pattern=r"^[a-zA-Z0-9_\-]+$"),
+    page: int = Query(1, ge=1, le=1000),
+    limit: int = Query(20, ge=1, le=100),
+):
     """Get all product offers for a shop."""
     offset = (page - 1) * limit
     offers = query(
@@ -88,13 +94,13 @@ async def shop_offers(shop_id: str, page: int = Query(1, ge=1), limit: int = Que
 
 @router.get("/shops/nearby/search")
 async def nearby_shops(
-    lat: float = Query(..., description="User latitude"),
-    lon: float = Query(..., description="User longitude"),
-    radius: float = Query(5.0, description="Radius in km"),
-    product_id: str = Query("", description="Filter by product"),
-    bnpl: str = Query("", description="Filter by BNPL provider"),
+    lat: float = Query(..., ge=-90.0, le=90.0, description="User latitude"),
+    lon: float = Query(..., ge=-180.0, le=180.0, description="User longitude"),
+    radius: float = Query(5.0, ge=0.1, le=50.0, description="Radius in km"),
+    product_id: str = Query("", max_length=64, description="Filter by product"),
+    bnpl: str = Query("", max_length=64, description="Filter by BNPL provider"),
     only_open: bool = Query(False, description="Only open shops"),
-    limit: int = Query(20, ge=1, le=50),
+    limit: int = Query(20, ge=1, le=100),
 ):
     """Find shops near a location."""
     min_lat, max_lat, min_lon, max_lon = bounding_box(lat, lon, radius)

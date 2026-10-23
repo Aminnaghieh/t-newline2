@@ -273,9 +273,10 @@ _LOCATED_ROW_CAP = 400      # hard cap on candidate rows fetched before merging
 # Small in-memory TTL cache for located searches. Keyed primarily by
 # (round(lat,3), round(lon,3), radius_km, q, sort); the remaining arguments
 # are part of the key too so a cached entry can never be served for a
-# request that differs in category/brand/price/window.
+# request that differs in category/brand/price/window. The dataset is a
+# static snapshot, so a long TTL is safe.
 _LOCATED_CACHE: dict = {}
-_LOCATED_CACHE_TTL_S = 60.0
+_LOCATED_CACHE_TTL_S = 1800.0   # 30 minutes
 _LOCATED_CACHE_MAX = 256
 _located_cache_lock = threading.Lock()
 

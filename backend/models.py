@@ -125,7 +125,11 @@ class ChatResponse(BaseModel):
     message: str
     step: str = ""  # "greeting" | "discovery" | "location" | "comparison" | "verification" | "fallback"
     cards: list[ChatCard] = []
+    # Generative-UI blocks (validated server-side, see services/ui_schema.py).
+    # Kept additive: `cards` keeps working for the current frontend.
+    ui: list[dict] = []
     suggestions: list[str] = []
     map_markers: list[MapMarker] = []
     filters: dict = {}
     session_id: str = ""
+    llm_used: bool = False   # True when the LLM-orchestrated path produced this reply

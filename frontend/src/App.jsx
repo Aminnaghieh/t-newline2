@@ -587,14 +587,21 @@ export default function App() {
             {/* Tab 2: Products Catalog */}
             {!isLoading && activeTab === 'products' && (
               <div className="space-y-3">
-                {productsMeta.located && productsMeta.total != null && productsMeta.total > 0 && (
+                {productsMeta.located && productsMeta.total === 0 && products.length > 0 ? (
+                  <div
+                    data-testid="products-total-fallback"
+                    className="text-[11px] text-amber-700 font-medium"
+                  >
+                    در محدوده شما محصولی پیدا نشد؛ نزدیک‌ترین‌ها را نشان می‌دهیم
+                  </div>
+                ) : productsMeta.located && productsMeta.total != null && productsMeta.total > 0 ? (
                   <div data-testid="products-total" className="text-[11px] text-gray-500">
                     {productsMeta.totalCapped
                       ? `${productsMeta.total.toLocaleString('fa-IR')}+`
                       : productsMeta.total.toLocaleString('fa-IR')}{' '}
                     مدل در محدوده شما پیدا شد
                   </div>
-                )}
+                ) : null}
                 {productsMeta.fallback && products.length > 0 && (
                   <div
                     data-testid="products-fallback-banner"

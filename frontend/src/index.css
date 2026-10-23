@@ -1,15 +1,35 @@
 @import "tailwindcss";
 
 @theme {
-  --color-torob-red: #E8453C;
-  --color-torob-red-dark: #C73830;
-  --color-torob-red-light: #FDF2F1;
-  --color-torob-gray: #F5F5F5;
-  --color-torob-dark: #1A1A2E;
-  --color-torob-green: #22C55E;
-  --color-torob-yellow: #F59E0B;
-  --color-torob-blue: #3B82F6;
+  /* ── TorobGard design tokens ─────────────────────────────────
+     Values extracted from torob.com production CSS/HTML
+     (study phase – no assets copied). Tailwind default radius scale
+     already matches torob.com (rounded-lg = 8px, rounded-2xl = 16px). */
+  --color-torob-red: #ae1f27;        /* brand red (torob.com markup) */
+  --color-torob-red-dark: #7f161e;  /* darker hover shade */
+  --color-torob-red-600: #c61616;   /* torob --red-500 equivalent */
+  --color-torob-red-400: #d73948;   /* lighter red */
+  --color-torob-red-light: #fff0f2; /* torob red-50 surface */
+  --color-torob-ink: #333333;       /* primary text */
+  --color-torob-ink-2: #374151;      /* secondary text */
+  --color-torob-muted: #9ca3af;     /* muted text */
+  --color-torob-surface: #f9fafb;    /* light surface */
+  --color-torob-surface-2: #f1f5f9;  /* slate-100 surface */
+  --color-torob-line: #e5e7eb;       /* borders/dividers */
+  --color-torob-price: #248212;      /* green price text */
+  --color-torob-price-bg: #eefceb;   /* green price tag bg */
+  --color-torob-lime: #9ce76a;       /* torob price-tag lime */
+  --color-torob-blue: #3468cc;       /* torob link/action blue */
+  --color-torob-gray: #f5f5f5;       /* legacy neutral bg (kept) */
+  --color-torob-dark: #1e293b;       /* headings / dark surface */
+  --color-torob-green: #22c55e;
+  --color-torob-yellow: #ffca32;     /* torob warning yellow */
+  --color-torob-blue-400: #3b82f6;    /* legacy accent (kept) */
   --font-family-sans: 'Vazirmatn', system-ui, -apple-system, sans-serif;
+
+  /* torob.com elevation */
+  --shadow-card: 0 4px 12px 0 rgba(51, 51, 51, 0.2);
+  --shadow-sheet: 0 4px 20px rgba(0, 0, 0, 0.15);
 }
 
 /* Custom scrollbar */
@@ -110,7 +130,7 @@ html { scroll-behavior: smooth; }
   @apply italic;
 }
 .markdown-body a {
-  @apply text-[#E8453C] underline underline-offset-2;
+  @apply text-torob-red underline underline-offset-2;
 }
 .markdown-body ul {
   @apply my-1.5 pr-4 list-disc;
